@@ -5,6 +5,9 @@ import java.awt.image.BufferedImage;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Random;
+import javax.imageio.ImageIO;
+import java.io.File;
+import java.io.IOException;
 
 public class Assignment1_67050437_67050473 extends JPanel {
 
@@ -15,16 +18,18 @@ public class Assignment1_67050437_67050473 extends JPanel {
     static final int FPS = 60;
     static final int FRAME_DELAY = 1000 / FPS;
 
-    static final int T_INSERT_START   = 0;
-    static final int T_INSERT_END     = 2500;   // hand pushes disc into slot
-    static final int T_LOADING_END    = 3500;   // player "reads" disc, light blinks
-    static final int T_TV_CUT_END     = 3900;   // quick white-flash transition to TV
-    static final int T_TV_STATIC_END  = 5400;   // old CRT "just switched on" static/snow, ~1.5s
-    static final int T_TV_BLACK_END   = 6000;   // static settles to black before the logo appears
-    static final int HOLD_AFTER_CORNER_MS = 1400; // freeze time once a perfect corner hit lands
+    static final int T_INSERT_START = 0;
+    static final int T_INSERT_END = 2500; // hand pushes disc into slot
+    static final int T_LOADING_END = 3500; // player "reads" disc, light blinks
+    static final int T_TV_CUT_END = 3900; // quick white-flash transition to TV
+    static final int T_TV_STATIC_END = 5400; // old CRT "just switched on" static/snow, ~1.5s
+    static final int T_TV_BLACK_END = 6000; // static settles to black before the logo appears
+    static final int HOLD_AFTER_CORNER_MS = 2000; // freeze time once a perfect corner hit lands
 
     long startTime = -1;
     Timer timer;
+
+    BufferedImage memoryImage = null;
 
     // ---------- Midpoint circle algorithm storage ----------
     // Each call produces a set of pixel points; we render them as small filled
@@ -36,33 +41,39 @@ public class Assignment1_67050437_67050473 extends JPanel {
     // mathematically guaranteed to occur, rather than hoping floating point
     // rounding lines two independent bounces up on the same frame.
     final int logoW = 120, logoH = 60;
-    int rangeX, rangeY;          // travel distance before hitting an edge, in each axis
-    int stepX = 3, stepY = 3;    // pixels moved per frame (equal speed = classic 45-degree DVD motion; chosen so the logo bounces ~7-8 times off the walls before landing exactly in a corner -- see initBounceGeometry)
-    int posX, posY;              // integer offset within [0, rangeX] / [0, rangeY]
-    int dirX = 1, dirY = 1;      // +1 or -1
-    double logoX = 90, logoY = 140; // derived screen position (kept as double for drawing); starts at top-left corner
+    int rangeX, rangeY; // travel distance before hitting an edge, in each axis
+    int stepX = 3, stepY = 3; // pixels moved per frame (equal speed = classic 45-degree DVD motion; chosen so
+                              // the logo bounces ~7-8 times off the walls before landing exactly in a corner
+                              // -- see initBounceGeometry)
+    int posX, posY; // integer offset within [0, rangeX] / [0, rangeY]
+    int dirX = 1, dirY = 1; // +1 or -1
+    double logoX = 90, logoY = 140; // derived screen position (kept as double for drawing); starts at top-left
+                                    // corner
     Color logoColor = new Color(230, 200, 40);
     List<Color> palette = List.of(
-            new Color(230, 200, 40),   // yellow
-            new Color(230, 70, 70),    // red
-            new Color(70, 160, 230),   // blue
-            new Color(90, 200, 110),   // green
-            new Color(200, 90, 220)    // purple
+            new Color(230, 200, 40), // yellow
+            new Color(230, 70, 70), // red
+            new Color(70, 160, 230), // blue
+            new Color(90, 200, 110), // green
+            new Color(200, 90, 220) // purple
     );
     int cornerHitFlashFrames = 0;
 
     // Corner-hit / freeze / restart state (bounce phase only)
-    boolean cornerLocked = false;   // true once logo has landed exactly in a corner
-    long cornerLockedAtMs = -1;     // wall-clock time (relative to startTime) when it locked
+    boolean cornerLocked = false; // true once logo has landed exactly in a corner
+    long cornerLockedAtMs = -1; // wall-clock time (relative to startTime) when it locked
 
     // TV inner screen bounds (set once we know TV geometry)
     final int screenX = 90, screenY = 140, screenW = 420, screenH = 300;
 
-    // Reused every frame for the TV static effect (avoids allocating an image 60x/sec).
-    // Chunky low-res buffer (4px "grain") upscaled with nearest-neighbor -- looks like
+    // Reused every frame for the TV static effect (avoids allocating an image
+    // 60x/sec).
+    // Chunky low-res buffer (4px "grain") upscaled with nearest-neighbor -- looks
+    // like
     // real analog snow instead of a smooth noise gradient.
     static final int STATIC_CELL = 4;
-    final BufferedImage staticImg = new BufferedImage(screenW / STATIC_CELL, screenH / STATIC_CELL, BufferedImage.TYPE_INT_RGB);
+    final BufferedImage staticImg = new BufferedImage(screenW / STATIC_CELL, screenH / STATIC_CELL,
+            BufferedImage.TYPE_INT_RGB);
     final int[] staticPixels = new int[(screenW / STATIC_CELL) * (screenH / STATIC_CELL)];
     final Random staticRng = new Random();
 
@@ -71,8 +82,21 @@ public class Assignment1_67050437_67050473 extends JPanel {
         setBackground(new Color(18, 18, 22));
         initBounceGeometry();
 
+        setPreferredSize(new Dimension(W, H));
+        setBackground(new Color(18, 18, 22));
+        initBounceGeometry();
+
+        // โหลดรูปภาพ (อย่าลืมเปลี่ยนชื่อไฟล์ให้ตรงกับรูปของคุณ
+        // และวางรูปไว้ในโฟลเดอร์เดียวกับโปรเจกต์)
+        try {
+            memoryImage = ImageIO.read(new File("สัมนามีเดีย.jpg"));
+        } catch (IOException e) {
+            System.out.println("ไม่สามารถโหลดรูปภาพได้: " + e.getMessage());
+        }
+
         timer = new Timer(FRAME_DELAY, e -> {
-            if (startTime < 0) startTime = System.currentTimeMillis();
+            if (startTime < 0)
+                startTime = System.currentTimeMillis();
             long elapsed = System.currentTimeMillis() - startTime;
 
             if (elapsed >= T_TV_BLACK_END) {
@@ -82,7 +106,8 @@ public class Assignment1_67050437_67050473 extends JPanel {
                     // held in the corner long enough -- restart the whole story from the top
                     resetAnimation();
                 }
-                if (cornerHitFlashFrames > 0) cornerHitFlashFrames--;
+                if (cornerHitFlashFrames > 0)
+                    cornerHitFlashFrames--;
             }
             repaint();
         });
@@ -107,9 +132,12 @@ public class Assignment1_67050437_67050473 extends JPanel {
 
     void resetAnimation() {
         startTime = System.currentTimeMillis();
-        posX = 0; posY = 0;
-        dirX = 1; dirY = 1;
-        logoX = screenX; logoY = screenY;
+        posX = staticRng.nextInt(rangeX + 1);
+        posY = staticRng.nextInt(rangeY + 1);
+        dirX = staticRng.nextBoolean() ? 1 : -1;
+        dirY = staticRng.nextBoolean() ? 1 : -1;
+        logoX = screenX + posX;
+        logoY = screenY + posY;
         logoColor = palette.get(0);
         cornerLocked = false;
         cornerLockedAtMs = -1;
@@ -174,15 +202,19 @@ public class Assignment1_67050437_67050473 extends JPanel {
             int idx = (palette.indexOf(logoColor) + 1) % palette.size();
             logoColor = palette.get(idx);
         }
-        if (hitX && hitY) {
+        if (hitX && hitY || elapsed - T_TV_BLACK_END >= 15000) {
             // the legendary perfect corner hit -- freeze the logo right here
             cornerHitFlashFrames = 20;
             cornerLocked = true;
             cornerLockedAtMs = elapsed;
+
         }
     }
 
-    /** Moves one axis by its step and reflects at the boundaries; returns true if it bounced this frame. */
+    /**
+     * Moves one axis by its step and reflects at the boundaries; returns true if it
+     * bounced this frame.
+     */
     boolean advanceAxisAndReportBounce(boolean isX) {
         int range = isX ? rangeX : rangeY;
         int step = isX ? stepX : stepY;
@@ -191,10 +223,23 @@ public class Assignment1_67050437_67050473 extends JPanel {
 
         pos += dir * step;
         boolean bounced = false;
-        if (pos <= 0) { pos = 0; dir = 1; bounced = true; }
-        else if (pos >= range) { pos = range; dir = -1; bounced = true; }
+        if (pos <= 0) {
+            pos = 0;
+            dir = 1;
+            bounced = true;
+        } else if (pos >= range) {
+            pos = range;
+            dir = -1;
+            bounced = true;
+        }
 
-        if (isX) { posX = pos; dirX = dir; } else { posY = pos; dirY = dir; }
+        if (isX) {
+            posX = pos;
+            dirX = dir;
+        } else {
+            posY = pos;
+            dirY = dir;
+        }
         return bounced;
     }
 
@@ -283,7 +328,8 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g2.fillRect(0, 0, W, H);
     }
 
-    // ---------------- Scene 4: old CRT static/snow (TV just switched on) ----------------
+    // ---------------- Scene 4: old CRT static/snow (TV just switched on)
+    // ----------------
     void drawTVStaticScene(Graphics2D g2, long elapsed) {
         g2.setColor(new Color(10, 10, 14));
         g2.fillRect(0, 0, W, H);
@@ -321,7 +367,8 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g2.setClip(null);
     }
 
-    // ---------------- Scene 5: static settles to black before the logo appears ----------------
+    // ---------------- Scene 5: static settles to black before the logo appears
+    // ----------------
     void drawTVBlackScene(Graphics2D g2, long elapsed) {
         g2.setColor(new Color(10, 10, 14));
         g2.fillRect(0, 0, W, H);
@@ -343,7 +390,10 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g2.setClip(null);
     }
 
-    /** Chunky black-and-white noise, like real analog TV snow (upscaled from a low-res buffer). */
+    /**
+     * Chunky black-and-white noise, like real analog TV snow (upscaled from a
+     * low-res buffer).
+     */
     void drawStaticNoise(Graphics2D g2, int x, int y, int w, int h) {
         for (int i = 0; i < staticPixels.length; i++) {
             int v = staticRng.nextInt(256);
@@ -359,28 +409,56 @@ public class Assignment1_67050437_67050473 extends JPanel {
     }
 
     // ---------------- Scene 6: TV + bouncing logo ----------------
+    // ---------------- Scene 6: TV + bouncing logo ----------------
     void drawBounceScene(Graphics2D g2, long elapsed) {
+
+        // 1. ระบายสีพื้นหลังรอบนอก (ผนังห้อง)
         g2.setColor(new Color(10, 10, 14));
         g2.fillRect(0, 0, W, H);
 
+        // 2. วาดกรอบทีวี
         drawTVFrame(g2);
 
-        // screen background (dark navy, like a paused/blue screen glow)
+        // 3. วาดพื้นหลังจอทีวี (สีน้ำเงินเข้ม)
         g2.setColor(new Color(8, 12, 30));
         g2.fill(new RoundRectangle2D.Double(screenX, screenY, screenW, screenH, 12, 12));
 
-        // corner flash effect
+        // 4. เอฟเฟกต์แสงแฟลชตอนกระเด้งโดนมุมพอดี
         if (cornerHitFlashFrames > 0) {
             float alpha = cornerHitFlashFrames / 20f * 0.5f;
             g2.setColor(new Color(1f, 1f, 1f, alpha));
             g2.fill(new RoundRectangle2D.Double(screenX, screenY, screenW, screenH, 12, 12));
         }
 
-        g2.setClip(new RoundRectangle2D.Double(screenX, screenY, screenW, screenH, 12, 12));
-        drawDVDLogo(g2, logoX, logoY, logoColor);
-        g2.setClip(null);
+        // 5. ***** วาดรูปภาพตรงนี้! (วาดทับพื้นหลังจอทีวี แต่ให้อยู่ใต้โลโก้ DVD) *****
+        if (cornerLocked) {
+            long sinceLock = elapsed - cornerLockedAtMs;
+            double ft = clamp01(sinceLock / 500.0);
 
-        // "MY MEMORIES" fades in once the logo has landed perfectly in a corner
+            if (memoryImage != null) {
+                Graphics2D gImg = (Graphics2D) g2.create();
+
+                // ใช้ setClip เพื่อทำให้รูปถูกตัดขอบให้โค้งพอดีกับจอทีวี
+                gImg.setClip(new RoundRectangle2D.Double(screenX, screenY, screenW, screenH, 12, 12));
+
+                // Fade in ค่อยๆ สว่างขึ้น
+                gImg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, (float) ft));
+
+                // วาดรูปให้เต็มจอทีวี
+                gImg.drawImage(memoryImage, screenX, screenY, screenW, screenH, null);
+
+                gImg.dispose();
+            }
+        }
+
+        // 6. วาดโลโก้ DVD ลอยไปมา (วาดทับรูปภาพอีกที)
+        if (!cornerLocked) {
+            g2.setClip(new RoundRectangle2D.Double(screenX, screenY, screenW, screenH, 12, 12));
+            drawDVDLogo(g2, logoX, logoY, logoColor);
+            g2.setClip(null);
+        }
+
+        // 7. วาดตัวหนังสือ MY MEMORIES ด้านบนสุด
         if (cornerLocked) {
             long sinceLock = elapsed - cornerLockedAtMs;
             double ft = clamp01(sinceLock / 500.0);
@@ -440,7 +518,8 @@ public class Assignment1_67050437_67050473 extends JPanel {
 
     /**
      * Redraws the panel ON TOP of whatever was just painted (a disc mid-insertion),
-     * but with the slot opening cut out of the fill using constructive area geometry
+     * but with the slot opening cut out of the fill using constructive area
+     * geometry
      * (Area.subtract). Anything drawn before this call gets hidden wherever it
      * overlaps the solid panel, and stays visible only through the slot cut-out --
      * this is what makes a sliding disc look like it's genuinely going INSIDE the
@@ -495,7 +574,8 @@ public class Assignment1_67050437_67050473 extends JPanel {
         }
         // rainbow shine arcs (curves) to sell the "shiny disc" look
         g2.setStroke(new BasicStroke(2));
-        Color[] shineColors = {new Color(255,120,120,120), new Color(120,255,180,120), new Color(140,160,255,120)};
+        Color[] shineColors = { new Color(255, 120, 120, 120), new Color(120, 255, 180, 120),
+                new Color(140, 160, 255, 120) };
         for (int i = 0; i < 3; i++) {
             QuadCurve2D shineArc = new QuadCurve2D.Double(
                     cx - radius * 0.5, cy - radius * 0.3 + i * 10,
@@ -507,13 +587,15 @@ public class Assignment1_67050437_67050473 extends JPanel {
         // center hole via midpoint circle algorithm too
         List<Point> hole = midpointCircle(cx, cy, Math.max(6, radius / 8));
         g2.setColor(new Color(20, 20, 24));
-        for (Point p : hole) g2.fillRect(p.x, p.y, 2, 2);
+        for (Point p : hole)
+            g2.fillRect(p.x, p.y, 2, 2);
         // fill center hole solid
         int hr = Math.max(6, radius / 8);
         for (int r = hr - 1; r > 0; r--) {
             List<Point> ring = midpointCircle(cx, cy, r);
             g2.setColor(new Color(20, 20, 24));
-            for (Point p : ring) g2.fillRect(p.x, p.y, 2, 2);
+            for (Point p : ring)
+                g2.fillRect(p.x, p.y, 2, 2);
         }
     }
 
@@ -547,7 +629,8 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g2.setFont(new Font("SansSerif", Font.BOLD, 34));
         g2.drawString("DVD", (float) x + 8, (float) y + 30);
 
-        // little TV-play triangle icon beside it, drawn via Path2D (a "curve/line" shape)
+        // little TV-play triangle icon beside it, drawn via Path2D (a "curve/line"
+        // shape)
         Path2D tri = new Path2D.Double();
         tri.moveTo(x + logoW - 26, y + 10);
         tri.lineTo(x + logoW - 26, y + 36);
