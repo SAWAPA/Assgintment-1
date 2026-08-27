@@ -6,36 +6,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Random;
 
-/**
- * Assignment1_67000000_67000001.java
- *
- * Theme: "MY MEMORIES"
- * Story: An old CD/DVD slides down into a player on its own, like a memory
- * surfacing. The disc genuinely disappears BEHIND the player's front panel as
- * it goes in -- drawn via constructive area geometry (Area.subtract) so the
- * panel occludes it everywhere except the slot cut-out, instead of the disc
- * just floating on top of the device. The player reads the disc, the scene
- * cuts to an old CRT television that has just been switched on -- a brief
- * power-on flash, a burst of black-and-white static/snow with scanlines and
- * a mistuned rolling band, then it settles to black before the classic
- * bouncing DVD logo appears - a universal shared memory of watching movies
- * with family, and the simple joy of watching it bounce, waiting for the
- * corner hit. The logo bounces several times with mathematically guaranteed
- * timing until it lands exactly in a corner, freezes there while
- * "MY MEMORIES" fades in, then the whole story restarts from the beginning.
- *
- * Requirements covered:
- * - Midpoint Circle Algorithm: manually implemented, used to draw the CD/DVD disc
- *   (both the disc being inserted, and reused for its spinning highlight)
- * - Lines and curves: TV frame, DVD player body, bouncing logo letters,
- *   room/floor details -- all built from Line2D, QuadCurve2D, CubicCurve2D, Path2D
- * - Java 2D API only (javax.swing + java.awt + java.awt.geom)
- * - 600 x 600 canvas
- * - Animation length: ~14 seconds per loop (exceeds 5s minimum), then repeats
- *
- * Pair: <Name 1> (<StudentID 1>), <Name 2> (<StudentID 2>)
- */
-public class Assignment1_67000000_67000001 extends JPanel {
+public class Assignment1_67050437_67050473 extends JPanel {
 
     // ---------- Canvas ----------
     static final int W = 600, H = 600;
@@ -95,7 +66,7 @@ public class Assignment1_67000000_67000001 extends JPanel {
     final int[] staticPixels = new int[(screenW / STATIC_CELL) * (screenH / STATIC_CELL)];
     final Random staticRng = new Random();
 
-    public Assignment1_67000000_67000001() {
+    public Assignment1_67050437_67050473() {
         setPreferredSize(new Dimension(W, H));
         setBackground(new Color(18, 18, 22));
         initBounceGeometry();
@@ -618,7 +589,7 @@ public class Assignment1_67000000_67000001 extends JPanel {
     // ================= main =================
     public static void main(String[] args) {
         JFrame frame = new JFrame("MY MEMORIES - Assignment 1");
-        Assignment1_67000000_67000001 panel = new Assignment1_67000000_67000001();
+        Assignment1_67050437_67050473 panel = new Assignment1_67050437_67050473();
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setResizable(false);
         frame.add(panel);
