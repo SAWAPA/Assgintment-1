@@ -35,7 +35,7 @@ public class Assignment1_67050437_67050473 extends JPanel {
 
     final int logoW = 120, logoH = 60;
     int rangeX, rangeY;
-    int stepX = 3, stepY = 3;
+    int stepX = 1, stepY = 1;
     int posX, posY;
     int dirX = 1, dirY = 1;
     double logoX = 90, logoY = 140;
