@@ -32,23 +32,15 @@ public class Assignment1_67050437_67050473 extends JPanel {
     Timer timer;
 
     // ---------- Midpoint circle algorithm storage ----------
-    // Each call produces a set of pixel points; we render them as small filled
-    // squares (classic raster-style rendering of the algorithm's output).
     List<Point> discOutlinePoints = new ArrayList<>();
 
     // ---------- Bouncing logo state ----------
-    // Motion uses integer step counts so a perfect double-edge (corner) hit is
-    // mathematically guaranteed to occur, rather than hoping floating point
-    // rounding lines two independent bounces up on the same frame.
     final int logoW = 120, logoH = 60;
-    int rangeX, rangeY; // travel distance before hitting an edge, in each axis
-    int stepX = 3, stepY = 3; // pixels moved per frame (equal speed = classic 45-degree DVD motion; chosen so
-                              // the logo bounces ~7-8 times off the walls before landing exactly in a corner
-                              // -- see initBounceGeometry)
-    int posX, posY; // integer offset within [0, rangeX] / [0, rangeY]
-    int dirX = 1, dirY = 1; // +1 or -1
-    double logoX = 90, logoY = 140; // derived screen position (kept as double for drawing); starts at top-left
-                                    // corner
+    int rangeX, rangeY;
+    int stepX = 3, stepY = 3;
+    int posX, posY;
+    int dirX = 1, dirY = 1;
+    double logoX = 90, logoY = 140;
     Color logoColor = new Color(230, 200, 40);
     List<Color> palette = List.of(
             new Color(230, 200, 40), // yellow
@@ -59,15 +51,12 @@ public class Assignment1_67050437_67050473 extends JPanel {
     );
     int cornerHitFlashFrames = 0;
 
-    // Corner-hit / freeze / restart state (bounce phase only)
-    boolean cornerLocked = false; // true once logo has landed exactly in a corner
-    long cornerLockedAtMs = -1; // wall-clock time (relative to startTime) when it locked
+    boolean cornerLocked = false;
+    long cornerLockedAtMs = -1;
 
-    // TV inner screen bounds (set once we know TV geometry)
+    // TV inner screen bounds
     final int screenX = 90, screenY = 140, screenW = 420, screenH = 300;
 
-    // Chunky low-res cells for the TV static effect. The snow is drawn directly
-    // as rectangles, so no external picture or image asset is displayed.
     static final int STATIC_CELL = 4;
     final Random staticRng = new Random();
 
@@ -104,17 +93,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         timer.start();
     }
 
-    /**
-     * rangeX = screenW - logoW = 300, rangeY = screenH - logoH = 240.
-     * With stepX=3 and stepY=3 (both divide their range evenly), each axis is
-     * an exact integer "triangle wave" reflecting cleanly at 0 and range with
-     * no overshoot. periodX = 2*300/3 = 200 frames, periodY = 2*240/3 = 160
-     * frames. Both axes hit an extreme (0 or range) on every multiple of
-     * their own period; they land on an extreme TOGETHER (a perfect corner
-     * hit) at LCM(200,160) = 400 frames = 6.67s, after 7 wall bounces along
-     * the way -- giving a slow, readable "bounces several times, then nails
-     * the corner" motion instead of an immediate or random-feeling hit.
-     */
     void initBounceGeometry() {
         rangeX = screenW - logoW;
         rangeY = screenH - logoH;
@@ -135,17 +113,11 @@ public class Assignment1_67050437_67050473 extends JPanel {
     }
 
     // ================= Midpoint Circle Algorithm =================
-    /**
-     * Classic midpoint (Bresenham-style) circle algorithm.
-     * Computes the 8-way symmetric points for one octant and mirrors them.
-     * Returns the full set of boundary points for a circle centered at (cx, cy)
-     * with the given integer radius.
-     */
     static List<Point> midpointCircle(int cx, int cy, int radius) {
         List<Point> pts = new ArrayList<>();
         int x = 0;
         int y = radius;
-        int d = 1 - radius; // initial decision parameter
+        int d = 1 - radius;
 
         addCirclePoints(pts, cx, cy, x, y);
         while (x < y) {
@@ -173,14 +145,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
     }
 
     // ================= Bounce physics =================
-    /**
-     * Advances the logo by one frame using exact integer arithmetic on each
-     * axis independently (a "triangle wave" that reflects precisely at 0 and
-     * range, never overshooting). Because the step sizes are divisors of
-     * their axis range, posX and posY always land exactly on 0 or range at
-     * the moment of a bounce -- so checking "both axes at an extreme on the
-     * same frame" is an exact test, not an approximation.
-     */
     void stepBounce(long elapsed) {
         boolean hitX = advanceAxisAndReportBounce(true);
         boolean hitY = advanceAxisAndReportBounce(false);
@@ -193,18 +157,12 @@ public class Assignment1_67050437_67050473 extends JPanel {
             logoColor = palette.get(idx);
         }
         if (hitX && hitY || elapsed - T_TV_BLACK_END >= 15000) {
-            // the legendary perfect corner hit -- freeze the logo right here
             cornerHitFlashFrames = 20;
             cornerLocked = true;
             cornerLockedAtMs = elapsed;
-
         }
     }
 
-    /**
-     * Moves one axis by its step and reflects at the boundaries; returns true if it
-     * bounced this frame.
-     */
     boolean advanceAxisAndReportBounce(boolean isX) {
         int range = isX ? rangeX : rangeY;
         int step = isX ? stepX : stepY;
@@ -257,50 +215,35 @@ public class Assignment1_67050437_67050473 extends JPanel {
         }
     }
 
-    // ---------------- Scene 1: hand inserts disc ----------------
     void drawInsertScene(Graphics2D g2, long elapsed) {
         drawRoomBackground(g2);
         drawPlayerBase(g2, 150, 380, 300, 90);
 
         double t = clamp01(elapsed / (double) T_INSERT_END);
-        // ease-in-out for the slide
         double eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
         int discStartY = 140;
-        // 450 = player front edge (y=380) + disc radius (70): at eased=1 the disc's
-        // TOP just reaches the panel's top edge, so the visible crescent above the
-        // panel shrinks smoothly to zero exactly as the disc "reaches" the slot --
-        // see drawPlayerFront, which is what actually hides the rest of it.
         int discEndY = 450;
         int discX = 300;
         int discY = (int) (discStartY + (discEndY - discStartY) * eased);
         int discRadius = 70;
 
         drawDisc(g2, discX, discY, discRadius, eased);
-        // Redraw the panel ON TOP of the disc, minus the slot opening: this is what
-        // makes the disc look like it's actually going INSIDE the player instead of
-        // just floating in front of it.
         drawPlayerFront(g2, 150, 380, 300, 90);
-        // the disc is bigger than the panel is tall, so its bottom edge can dip past
-        // the panel and over the floor -- paper over that with the floor's own color
         restoreFloorBelowPlayer(g2, 470);
 
         drawCaption(g2, "An old disc, sliding in...", 40);
     }
 
-    // ---------------- Scene 2: loading / reading ----------------
     void drawLoadingScene(Graphics2D g2, long elapsed) {
         drawRoomBackground(g2);
         drawPlayerBase(g2, 150, 380, 300, 90);
 
-        // Disc is now fully behind the panel; drawPlayerFront's slot cut-out is what
-        // keeps only a sliver of it visible -- no manual clip rectangle needed anymore.
         int discX = 300, discY = 450, discRadius = 70;
         drawDisc(g2, discX, discY, discRadius, 1.0);
         drawPlayerFront(g2, 150, 380, 300, 90);
         restoreFloorBelowPlayer(g2, 470);
 
-        // blinking loading light on the player (drawn with a small circle path too)
         boolean on = ((elapsed / 250) % 2 == 0);
         g2.setColor(on ? new Color(80, 230, 120) : new Color(30, 90, 50));
         g2.fill(new Ellipse2D.Double(430, 415, 14, 14));
@@ -308,7 +251,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         drawCaption(g2, "Loading...", 40);
     }
 
-    // ---------------- Scene 3: quick flash transition ----------------
     void drawTransition(Graphics2D g2, long elapsed) {
         double t = (elapsed - T_LOADING_END) / (double) (T_TV_CUT_END - T_LOADING_END);
         drawRoomBackground(g2);
@@ -318,8 +260,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g2.fillRect(0, 0, W, H);
     }
 
-    // ---------------- Scene 4: old CRT static/snow (TV just switched on)
-    // ----------------
     void drawTVStaticScene(Graphics2D g2, long elapsed) {
         g2.setColor(new Color(10, 10, 14));
         g2.fillRect(0, 0, W, H);
@@ -329,7 +269,7 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g2.setClip(screenShape);
 
         long localMs = elapsed - T_TV_CUT_END;
-        long flashMs = 180; // brief CRT power-on flash: a thin bright line expands to full height
+        long flashMs = 180;
 
         if (localMs < flashMs) {
             double ft = localMs / (double) flashMs;
@@ -342,23 +282,18 @@ public class Assignment1_67050437_67050473 extends JPanel {
         } else {
             drawStaticNoise(g2, screenX, screenY, screenW, screenH);
 
-            // scanlines overlay, like an interlaced CRT
             g2.setColor(new Color(0, 0, 0, 60));
             for (int sy = 0; sy < screenH; sy += 3) {
                 g2.fill(new Rectangle2D.Double(screenX, screenY + sy, screenW, 1));
             }
 
-            // a dark band slowly rolling down the screen, like a mistuned channel
             int bandY = (int) ((localMs / 3) % (screenH + 60)) - 30;
             g2.setColor(new Color(0, 0, 0, 90));
             g2.fill(new Rectangle2D.Double(screenX, screenY + bandY, screenW, 24));
         }
-
         g2.setClip(null);
     }
 
-    // ---------------- Scene 5: static settles to black before the logo appears
-    // ----------------
     void drawTVBlackScene(Graphics2D g2, long elapsed) {
         g2.setColor(new Color(10, 10, 14));
         g2.fillRect(0, 0, W, H);
@@ -376,11 +311,9 @@ public class Assignment1_67050437_67050473 extends JPanel {
             g2.setColor(Color.BLACK);
             g2.fill(screenShape);
         }
-
         g2.setClip(null);
     }
 
-    /** Chunky black-and-white noise, drawn directly with Java 2D rectangles. */
     void drawStaticNoise(Graphics2D g2, int x, int y, int w, int h) {
         for (int py = y; py < y + h; py += STATIC_CELL) {
             for (int px = x; px < x + w; px += STATIC_CELL) {
@@ -391,7 +324,8 @@ public class Assignment1_67050437_67050473 extends JPanel {
         }
     }
 
-    // ---------------- Scene 6: TV + bouncing logo and memory story ----------------
+    // ---------------- Scene 6: TV + bouncing logo and memory story
+    // ----------------
     void drawBounceScene(Graphics2D g2, long elapsed) {
         g2.setColor(new Color(10, 10, 14));
         g2.fillRect(0, 0, W, H);
@@ -399,7 +333,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         long sinceCorner = cornerLocked ? elapsed - cornerLockedAtMs : 0;
 
         if (!cornerLocked) {
-            // The DVD phase ends when it hits a corner (or after the safety timeout).
             g2.setColor(new Color(8, 12, 30));
             g2.fill(new RoundRectangle2D.Double(screenX, screenY, screenW, screenH, 12, 12));
             if (cornerHitFlashFrames > 0) {
@@ -413,7 +346,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
             return;
         }
 
-        // Every story frame is drawn from Java 2D primitives; no JPG is loaded.
         long t = sinceCorner;
         if (t < BEN_SCENE_MS) {
             drawFourArmsTransformation(g2, t);
@@ -424,8 +356,7 @@ public class Assignment1_67050437_67050473 extends JPanel {
         } else if (t < BEN_SCENE_MS + STATIC_ONE_MS + DORAEMON_SCENE_MS + STATIC_ONE_MS) {
             drawStoryStatic(g2, t - BEN_SCENE_MS - STATIC_ONE_MS - DORAEMON_SCENE_MS, "CHANNEL LOST");
         } else if (t < BEN_SCENE_MS + STATIC_ONE_MS + DORAEMON_SCENE_MS + STATIC_ONE_MS + ULTRAMAN_SCENE_MS) {
-            drawUltramanBeamScene(g2,
-                    t - BEN_SCENE_MS - STATIC_ONE_MS - DORAEMON_SCENE_MS - STATIC_ONE_MS);
+            drawUltramanBeamScene(g2, t - BEN_SCENE_MS - STATIC_ONE_MS - DORAEMON_SCENE_MS - STATIC_ONE_MS);
         } else if (t < BEN_SCENE_MS + STATIC_ONE_MS + DORAEMON_SCENE_MS + STATIC_ONE_MS + ULTRAMAN_SCENE_MS
                 + STATIC_TWO_MS) {
             drawStoryStatic(g2,
@@ -439,8 +370,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
             resetAnimation();
         }
     }
-
-    // ================= Story scenes drawn with Java 2D =================
 
     void beginStoryScreen(Graphics2D g2, Color top, Color bottom) {
         Graphics2D g = (Graphics2D) g2.create();
@@ -469,257 +398,406 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.dispose();
     }
 
+    // ================= Ben 10 Scene =================
     void drawFourArmsTransformation(Graphics2D g2, long elapsed) {
-        beginStoryScreen(g2, new Color(9, 35, 70), new Color(72, 18, 74));
+        beginStoryScreen(g2, new Color(10, 25, 15), new Color(5, 10, 5));
         Graphics2D g = (Graphics2D) g2.create();
         g.setClip(new RoundRectangle2D.Double(screenX, screenY, screenW, screenH, 12, 12));
 
-        // Green transformation rings and sparks.
         double p = clamp01(elapsed / (double) BEN_SCENE_MS);
-        for (int r = 25; r < 180; r += 28) {
-            float a = (float) (0.18 + 0.18 * Math.sin(elapsed * 0.01 + r));
-            g.setColor(new Color(80, 255, 85, Math.max(20, (int) (255 * a))));
-            g.setStroke(new BasicStroke(3));
-            g.draw(new Ellipse2D.Double(300 - r - p * 12, 295 - r * 0.65, 2 * r + p * 24, 2 * r * 0.65));
-        }
-        for (int i = 0; i < 12; i++) {
-            double ang = i * Math.PI / 6.0 + elapsed * 0.002;
-            int sx = (int) (300 + Math.cos(ang) * (130 + 20 * Math.sin(elapsed * 0.006)));
-            int sy = (int) (305 + Math.sin(ang) * 95);
-            g.setColor(new Color(170, 255, 105, 180));
-            g.fill(new Ellipse2D.Double(sx - 3, sy - 3, 6, 6));
-        }
+        int cx = 300;
+        int cy = 300;
+        double scale = 1.0;
 
-        // First Ben slaps the Omnitrix, then the alien body grows out of the
-        // human silhouette. The final red form remains on screen long enough
-        // to be read clearly.
-        boolean fourArms = p > 0.62;
-        double transform = clamp01((p - 0.20) / 0.42);
-        if (p < 0.48) {
-            drawBenCharacter(g, 300, 318, 0.82, false, transform, elapsed, elapsed < 1250);
-        } else if (p < 0.66) {
-            // Cross-fade the anatomically aligned human and alien drawings so
-            // the new arms grow from the shoulders instead of popping in.
-            float alienAlpha = (float) clamp01((p - 0.48) / 0.18);
-            Graphics2D human = (Graphics2D) g.create();
-            human.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f - alienAlpha));
-            drawBenCharacter(human, 300, 318, 0.82, false, transform, elapsed, false);
-            human.dispose();
-            Graphics2D alien = (Graphics2D) g.create();
-            alien.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alienAlpha));
-            drawBenCharacter(alien, 300, 318, 0.82, true, transform, elapsed, false);
-            alien.dispose();
+        if (p < 0.45) {
+            drawNewBen10(g, cx, cy + 20, scale);
+            if (p > 0.3) {
+                float flash = (float) ((p - 0.3) / 0.15);
+                g.setColor(new Color(100, 255, 100, (int) (150 * flash)));
+                int glowR = (int) (150 * flash);
+                g.fillOval(cx - glowR, cy - glowR, glowR * 2, glowR * 2);
+            }
+        } else if (p < 0.55) {
+            g.setColor(new Color(150, 255, 150));
+            g.fillRect(screenX, screenY, screenW, screenH);
+            g.setColor(new Color(50, 255, 50, 200));
+            g.setStroke(new BasicStroke(15));
+            int ringSize = (int) (400 * ((p - 0.45) / 0.1));
+            g.drawOval(cx - ringSize / 2, cy - ringSize / 2, ringSize, ringSize);
         } else {
-            drawBenCharacter(g, 300, 318, 0.82, true, transform, elapsed, false);
+            drawNewFourArms(g, cx, cy + 10, scale * 1.15);
+            if (p < 0.65) {
+                float flash = (float) (1.0 - (p - 0.55) / 0.1);
+                g.setColor(new Color(150, 255, 150, (int) (255 * flash)));
+                g.fillRect(screenX, screenY, screenW, screenH);
+            }
         }
-        if (elapsed < 1250)
-            drawOmnitrixTap(g, elapsed);
-
         g.setColor(Color.WHITE);
         g.setFont(new Font("SansSerif", Font.BOLD, 18));
-        g.drawString(fourArms ? "FOUR ARMS!" : "BEN 10 - HIT THE OMNITRIX", 142, 166);
+        g.drawString(p > 0.5 ? "FOUR ARMS!" : "IT'S HERO TIME!", 142, 166);
         g.dispose();
     }
 
-    void drawBenCharacter(Graphics2D g, int cx, int cy, double scale, boolean fourArms,
-            double transform, long elapsed, boolean tapping) {
-        int bodyW = (int) ((fourArms ? 122 : 66) * scale);
-        int bodyH = (int) ((fourArms ? 120 : 105) * scale);
-        int headR = (int) ((fourArms ? 41 : 35) * scale);
-        // The head is anchored to the shoulders; this removes the floating-head
-        // gap that was visible in the previous version.
-        int headY = cy - (int) (74 * scale);
-        Color skin = fourArms ? new Color(180, 62, 42) : new Color(216, 141, 99);
+    void drawNewBen10(Graphics2D g, int cx, int cy, double s) {
+        Color skin = new Color(240, 190, 150);
+        Color shirtGreen = new Color(130, 200, 50);
+        Color pantsBrown = new Color(160, 95, 45);
 
-        // Shadow and legs.
         g.setColor(new Color(0, 0, 0, 90));
-        g.fill(new Ellipse2D.Double(cx - 75 * scale, cy + 78 * scale, 150 * scale, 18 * scale));
-        g.setStroke(new BasicStroke((float) (17 * scale), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.setColor(new Color(34, 34, 42));
-        g.draw(new Line2D.Double(cx - 20 * scale, cy + 58 * scale, cx - 27 * scale, cy + 115 * scale));
-        g.draw(new Line2D.Double(cx + 20 * scale, cy + 58 * scale, cx + 27 * scale, cy + 115 * scale));
-        g.setColor(new Color(25, 25, 25));
-        g.draw(new Line2D.Double(cx - 33 * scale, cy + 116 * scale, cx - 8 * scale, cy + 116 * scale));
-        g.draw(new Line2D.Double(cx + 8 * scale, cy + 116 * scale, cx + 34 * scale, cy + 116 * scale));
+        g.fill(new Ellipse2D.Double(cx - 50 * s, cy + 130 * s, 100 * s, 15 * s));
 
-        // Main torso.
-        // Neck and shoulder connection.
-        g.setColor(skin);
-        g.fill(new RoundRectangle2D.Double(cx - 15 * scale, headY + headR - 8 * scale, 30 * scale,
-                28 * scale, 12, 12));
-        g.setColor(fourArms ? new Color(170, 54, 39) : new Color(45, 45, 48));
-        g.fill(new RoundRectangle2D.Double(cx - bodyW / 2.0, cy - 34 * scale, bodyW, bodyH, 22, 22));
-        g.setColor(new Color(25, 25, 25));
-        g.fill(new Rectangle2D.Double(cx - bodyW / 2.0, cy - 8 * scale, bodyW, 16 * scale));
-        if (!fourArms) {
-            g.setColor(new Color(65, 155, 72));
-            g.fill(new RoundRectangle2D.Double(cx - bodyW / 2.0 + 5 * scale, cy - 30 * scale,
-                    bodyW - 10 * scale, 24 * scale, 12, 12));
-            g.setColor(Color.WHITE);
-            g.fill(new Polygon(new int[] { (int) (cx - 12 * scale), cx, (int) (cx + 12 * scale) },
-                    new int[] { (int) (cy - 30 * scale), (int) (cy - 9 * scale), (int) (cy - 30 * scale) }, 3));
-        }
+        g.setColor(pantsBrown);
+        g.fillPolygon(new int[] { (int) (cx - 15 * s), (int) (cx - 40 * s), (int) (cx - 10 * s), (int) (cx - 5 * s) },
+                new int[] { (int) (cy + 40 * s), (int) (cy + 130 * s), (int) (cy + 130 * s), (int) (cy + 40 * s) }, 4);
+        g.fillPolygon(new int[] { (int) (cx + 15 * s), (int) (cx + 40 * s), (int) (cx + 10 * s), (int) (cx + 5 * s) },
+                new int[] { (int) (cy + 40 * s), (int) (cy + 130 * s), (int) (cy + 130 * s), (int) (cy + 40 * s) }, 4);
 
-        // Upper arms and the extra Four Arms pair.
-        drawCharacterArm(g, cx - 34 * scale, cy - 16 * scale, cx - 77 * scale, cy + 35 * scale,
-                skin, scale);
-        if (tapping) {
-            // Ben's existing right arm reaches across his chest to the left
-            // wrist. It is the same arm, so the tap cannot create a third arm.
-            drawCharacterArm(g, cx + 34 * scale, cy - 16 * scale, cx - 77 * scale, cy + 35 * scale,
-                    skin, scale);
-        } else {
-            drawCharacterArm(g, cx + 34 * scale, cy - 16 * scale, cx + 77 * scale, cy + 35 * scale,
-                    skin, scale);
-        }
-        if (fourArms) {
-            double wave = Math.sin(elapsed * 0.008) * 10;
-            drawCharacterArm(g, cx - 30 * scale, cy + 20 * scale, cx - 86 * scale, cy + 72 * scale + wave,
-                    skin, scale);
-            drawCharacterArm(g, cx + 30 * scale, cy + 20 * scale, cx + 86 * scale, cy + 72 * scale - wave,
-                    skin, scale);
-            // Four Arms has broad shoulders, a red alien torso and a visible
-            // black belt instead of Ben's shirt.
-            g.setColor(new Color(225, 91, 61, 160));
-            g.fill(new Ellipse2D.Double(cx - 34 * scale, cy - 27 * scale, 28 * scale, 17 * scale));
-            g.fill(new Ellipse2D.Double(cx + 6 * scale, cy - 27 * scale, 28 * scale, 17 * scale));
-        }
+        g.setColor(new Color(140, 80, 35));
+        g.fillOval((int) (cx - 45 * s), (int) (cy + 80 * s), (int) (15 * s), (int) (30 * s));
+        g.fillOval((int) (cx + 30 * s), (int) (cy + 80 * s), (int) (15 * s), (int) (30 * s));
 
-        // Head, hair, eyes and the Omnitrix.
-        g.setColor(skin);
-        g.fill(new Ellipse2D.Double(cx - headR, headY - headR, 2 * headR, 2 * headR));
-        Path2D hair = new Path2D.Double();
-        hair.moveTo(cx - headR, headY - 8 * scale);
-        hair.curveTo(cx - 28 * scale, headY - 48 * scale, cx + 8 * scale, headY - 54 * scale,
-                cx + headR, headY - 22 * scale);
-        hair.lineTo(cx + 26 * scale, headY - 6 * scale);
-        hair.lineTo(cx + 8 * scale, headY - 19 * scale);
-        hair.lineTo(cx - 8 * scale, headY - 5 * scale);
-        hair.lineTo(cx - 23 * scale, headY - 17 * scale);
-        hair.closePath();
-        g.setColor(new Color(30, 25, 24));
-        g.fill(hair);
-        if (fourArms) {
-            // Pointed alien ears and a heavier brow make the transformed form
-            // visually different from human Ben.
-            g.setColor(skin);
-            g.fill(new Polygon(new int[] { (int) (cx - headR + 4 * scale), (int) (cx - headR - 13 * scale),
-                    (int) (cx - headR + 12 * scale) },
-                    new int[] { (int) (headY - 3 * scale), (int) (headY - 13 * scale), (int) (headY + 12 * scale) }, 3));
-            g.fill(new Polygon(new int[] { (int) (cx + headR - 4 * scale), (int) (cx + headR + 13 * scale),
-                    (int) (cx + headR - 12 * scale) },
-                    new int[] { (int) (headY - 3 * scale), (int) (headY - 13 * scale), (int) (headY + 12 * scale) }, 3));
-            g.setColor(new Color(85, 28, 25));
-            g.fill(new Rectangle2D.Double(cx - 21 * scale, headY - 3 * scale, 42 * scale, 8 * scale));
-            g.setColor(new Color(45, 18, 20));
-            g.setStroke(new BasicStroke((float) (4 * scale), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            g.draw(new Line2D.Double(cx - 29 * scale, headY - 17 * scale, cx - 13 * scale, headY - 25 * scale));
-            g.draw(new Line2D.Double(cx - 10 * scale, headY - 25 * scale, cx + 7 * scale, headY - 17 * scale));
-            g.draw(new Line2D.Double(cx + 9 * scale, headY - 25 * scale, cx + 27 * scale, headY - 16 * scale));
-        }
         g.setColor(Color.WHITE);
-        g.fill(new Ellipse2D.Double(cx - 16 * scale, headY - 2 * scale, 8 * scale, 12 * scale));
-        g.fill(new Ellipse2D.Double(cx + 8 * scale, headY - 2 * scale, 8 * scale, 12 * scale));
-        g.setColor(Color.BLACK);
-        g.fill(new Ellipse2D.Double(cx - 13 * scale, headY + 1 * scale, 4 * scale, 7 * scale));
-        g.fill(new Ellipse2D.Double(cx + 11 * scale, headY + 1 * scale, 4 * scale, 7 * scale));
-        g.setStroke(new BasicStroke((float) (2 * scale)));
-        if (fourArms) {
-            g.setColor(new Color(75, 22, 22));
-            g.draw(new Line2D.Double(cx - 9 * scale, headY + 18 * scale, cx + 9 * scale, headY + 18 * scale));
-            g.fill(new Ellipse2D.Double(cx - 22 * scale, headY + 9 * scale, 5 * scale, 4 * scale));
-            g.fill(new Ellipse2D.Double(cx + 17 * scale, headY + 9 * scale, 5 * scale, 4 * scale));
-        } else {
-            g.draw(new Arc2D.Double(cx - 10 * scale, headY + 14 * scale, 20 * scale, 11 * scale, 200, 140,
-                    Arc2D.OPEN));
-        }
-        // Omnitrix sits on the wrist, not on the stomach.
-        double watchX = fourArms ? cx - 53 * scale : cx - 77 * scale;
-        double watchY = fourArms ? cy + 23 * scale : cy + 30 * scale;
-        drawOmnitrix(g, watchX, watchY, 10 * scale);
-    }
+        g.fillArc((int) (cx - 50 * s), (int) (cy + 120 * s), (int) (45 * s), (int) (20 * s), 0, 180);
+        g.fillArc((int) (cx + 5 * s), (int) (cy + 120 * s), (int) (45 * s), (int) (20 * s), 0, 180);
+        g.setColor(shirtGreen);
+        g.fillArc((int) (cx - 50 * s), (int) (cy + 123 * s), (int) (15 * s), (int) (15 * s), 90, 180);
+        g.fillArc((int) (cx + 35 * s), (int) (cy + 123 * s), (int) (15 * s), (int) (15 * s), -90, 180);
 
-    void drawCharacterArm(Graphics2D g, double x1, double y1, double x2, double y2, Color skin, double scale) {
+        g.setColor(Color.BLACK);
+        g.fillRoundRect((int) (cx - 20 * s), (int) (cy - 30 * s), (int) (40 * s), (int) (75 * s), 10, 10);
+
+        g.setColor(shirtGreen);
+        g.fillRect((int) (cx - 22 * s), (int) (cy - 30 * s), (int) (12 * s), (int) (30 * s));
+        g.fillRect((int) (cx + 10 * s), (int) (cy - 30 * s), (int) (12 * s), (int) (30 * s));
+
+        g.setColor(Color.WHITE);
+        g.fillOval((int) (cx - 8 * s), (int) (cy - 20 * s), (int) (16 * s), (int) (16 * s));
+        g.setColor(Color.BLACK);
+        g.setFont(new Font("SansSerif", Font.BOLD, (int) (10 * s)));
+        g.drawString("10", (int) (cx - 6 * s), (int) (cy - 9 * s));
+
+        g.setColor(Color.WHITE);
+        g.fillPolygon(new int[] { (int) (cx - 12 * s), cx, (int) (cx + 12 * s) },
+                new int[] { (int) (cy - 30 * s), (int) (cy - 20 * s), (int) (cy - 30 * s) }, 3);
+
         g.setColor(skin);
-        float armWidth = (skin.getGreen() < 100) ? 24f : 19f;
-        g.setStroke(new BasicStroke((float) (armWidth * scale), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.draw(new Line2D.Double(x1, y1, x2, y2));
-        g.setColor(skin.brighter());
-        if (skin.getGreen() < 100) {
-            g.fill(new RoundRectangle2D.Double(x2 - 15 * scale, y2 - 13 * scale, 30 * scale, 25 * scale, 9, 9));
-            g.setColor(new Color(111, 32, 29));
-            g.setStroke(new BasicStroke((float) (2 * scale)));
-            for (int i = -1; i <= 1; i++)
-                g.draw(new Line2D.Double(x2 + i * 5 * scale, y2 - 7 * scale, x2 + i * 5 * scale, y2 + 6 * scale));
-        } else {
-            g.fill(new Ellipse2D.Double(x2 - 13 * scale, y2 - 13 * scale, 26 * scale, 26 * scale));
-        }
-    }
+        g.fillRect((int) (cx - 5 * s), (int) (cy - 40 * s), (int) (10 * s), (int) (15 * s));
+        g.fillOval((int) (cx - 18 * s), (int) (cy - 75 * s), (int) (36 * s), (int) (40 * s));
 
-    void drawOmnitrix(Graphics2D g, double x, double y, double radius) {
-        g.setColor(new Color(20, 30, 25));
-        g.fill(new Ellipse2D.Double(x - radius - 3, y - radius - 3, 2 * radius + 6, 2 * radius + 6));
-        g.setColor(new Color(62, 238, 76));
-        g.fill(new Ellipse2D.Double(x - radius, y - radius, 2 * radius, 2 * radius));
+        g.setColor(Color.WHITE);
+        g.fillOval((int) (cx - 12 * s), (int) (cy - 62 * s), (int) (10 * s), (int) (7 * s));
+        g.fillOval((int) (cx + 2 * s), (int) (cy - 62 * s), (int) (10 * s), (int) (7 * s));
+        g.setColor(shirtGreen);
+        g.fillOval((int) (cx - 9 * s), (int) (cy - 61 * s), (int) (4 * s), (int) (4 * s));
+        g.fillOval((int) (cx + 5 * s), (int) (cy - 61 * s), (int) (4 * s), (int) (4 * s));
+
+        g.setColor(new Color(150, 100, 70));
+        g.drawArc((int) (cx - 5 * s), (int) (cy - 52 * s), (int) (15 * s), (int) (5 * s), 180, 90);
+
+        g.setColor(new Color(100, 50, 20));
+        Path2D hair = new Path2D.Double();
+        hair.moveTo(cx - 20 * s, cy - 60 * s);
+        hair.lineTo(cx - 25 * s, cy - 75 * s);
+        hair.lineTo(cx - 10 * s, cy - 85 * s);
+        hair.lineTo(cx, cy - 80 * s);
+        hair.lineTo(cx + 15 * s, cy - 82 * s);
+        hair.lineTo(cx + 22 * s, cy - 65 * s);
+        hair.lineTo(cx + 20 * s, cy - 55 * s);
+        hair.lineTo(cx + 10 * s, cy - 70 * s);
+        hair.lineTo(cx - 10 * s, cy - 75 * s);
+        hair.closePath();
+        g.fill(hair);
+
+        g.setStroke(new BasicStroke((float) (12 * s), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.setColor(skin);
+        g.draw(new Line2D.Double(cx - 18 * s, cy - 25 * s, cx - 40 * s, cy - 45 * s));
+        g.draw(new Line2D.Double(cx - 40 * s, cy - 45 * s, cx - 35 * s, cy - 75 * s));
+        g.fillOval((int) (cx - 40 * s), (int) (cy - 85 * s), (int) (12 * s), (int) (15 * s));
+
+        g.draw(new Line2D.Double(cx + 18 * s, cy - 25 * s, cx + 35 * s, cy - 15 * s));
+        g.draw(new Line2D.Double(cx + 35 * s, cy - 15 * s, cx - 10 * s, cy - 5 * s));
+
         g.setColor(Color.BLACK);
-        g.fill(new Ellipse2D.Double(x - radius * 0.52, y - radius * 0.52, radius * 1.04, radius * 1.04));
-        g.setColor(new Color(170, 255, 125));
-        g.fill(new Ellipse2D.Double(x - radius * 0.19, y - radius * 0.19, radius * 0.38, radius * 0.38));
+        g.fillRoundRect((int) (cx - 18 * s), (int) (cy - 12 * s), (int) (16 * s), (int) (16 * s), 5, 5);
+        g.setColor(shirtGreen);
+        g.fillOval((int) (cx - 15 * s), (int) (cy - 9 * s), (int) (10 * s), (int) (10 * s));
     }
 
-    void drawOmnitrixTap(Graphics2D g, long elapsed) {
-        double t = clamp01(elapsed / 1250.0);
-        double watchX = 237;
-        double watchY = 344;
-        g.setColor(new Color(125, 255, 112, 180));
-        g.setStroke(new BasicStroke(3));
-        g.draw(new Ellipse2D.Double(watchX - 18 - 3 * t, watchY - 18 - 3 * t,
-                36 + 6 * t, 36 + 6 * t));
-        if (elapsed > 250) {
-            g.setColor(new Color(210, 255, 170, 210));
-            g.draw(new Line2D.Double(watchX - 24, watchY - 8, watchX - 15, watchY - 2));
-            g.draw(new Line2D.Double(watchX + 15, watchY - 2, watchX + 24, watchY - 8));
-        }
+    void drawNewFourArms(Graphics2D g, int cx, int cy, double s) {
+        Color skinRed = new Color(210, 40, 30);
+        Color pantsBlack = new Color(20, 20, 20);
+
+        g.setColor(new Color(0, 0, 0, 90));
+        g.fill(new Ellipse2D.Double(cx - 70 * s, cy + 130 * s, 140 * s, 20 * s));
+
+        g.setColor(pantsBlack);
+        g.fillPolygon(new int[] { (int) (cx - 25 * s), (int) (cx - 70 * s), (int) (cx - 50 * s), (int) (cx - 10 * s) },
+                new int[] { (int) (cy + 40 * s), (int) (cy + 110 * s), (int) (cy + 110 * s), (int) (cy + 50 * s) }, 4);
+        g.fillPolygon(new int[] { (int) (cx + 25 * s), (int) (cx + 70 * s), (int) (cx + 50 * s), (int) (cx + 10 * s) },
+                new int[] { (int) (cy + 40 * s), (int) (cy + 110 * s), (int) (cy + 110 * s), (int) (cy + 50 * s) }, 4);
+
+        g.setColor(skinRed);
+        g.fillPolygon(new int[] { (int) (cx - 70 * s), (int) (cx - 90 * s), (int) (cx - 40 * s), (int) (cx - 40 * s) },
+                new int[] { (int) (cy + 100 * s), (int) (cy + 125 * s), (int) (cy + 125 * s), (int) (cy + 110 * s) },
+                4);
+        g.fillPolygon(new int[] { (int) (cx + 70 * s), (int) (cx + 90 * s), (int) (cx + 40 * s), (int) (cx + 40 * s) },
+                new int[] { (int) (cy + 100 * s), (int) (cy + 125 * s), (int) (cy + 125 * s), (int) (cy + 110 * s) },
+                4);
+
+        g.setColor(pantsBlack);
+        g.fillOval((int) (cx - 20 * s), (int) (cy + 35 * s), (int) (40 * s), (int) (25 * s));
+        g.setColor(Color.WHITE);
+        g.fillOval((int) (cx - 12 * s), (int) (cy + 40 * s), (int) (24 * s), (int) (24 * s));
+        g.setColor(Color.BLACK);
+        g.fillPolygon(new int[] { (int) (cx - 8 * s), cx, (int) (cx + 8 * s), (int) (cx + 5 * s), (int) (cx - 5 * s) },
+                new int[] { (int) (cy + 45 * s), (int) (cy + 50 * s), (int) (cy + 45 * s), (int) (cy + 58 * s),
+                        (int) (cy + 58 * s) },
+                5);
+        g.setColor(new Color(130, 200, 50));
+        g.fillOval((int) (cx - 4 * s), (int) (cy + 48 * s), (int) (8 * s), (int) (8 * s));
+
+        g.setColor(Color.WHITE);
+        g.fillPolygon(new int[] { (int) (cx - 45 * s), (int) (cx - 30 * s), (int) (cx + 30 * s), (int) (cx + 45 * s) },
+                new int[] { (int) (cy - 40 * s), (int) (cy + 40 * s), (int) (cy + 40 * s), (int) (cy - 40 * s) }, 4);
+
+        g.setColor(pantsBlack);
+        g.fillRect((int) (cx - 15 * s), (int) (cy - 40 * s), (int) (30 * s), (int) (85 * s));
+        g.fillRect((int) (cx - 35 * s), (int) (cy - 40 * s), (int) (70 * s), (int) (15 * s));
+
+        g.setColor(skinRed);
+        g.fillRect((int) (cx - 15 * s), (int) (cy - 60 * s), (int) (30 * s), (int) (25 * s));
+        g.fillOval((int) (cx - 18 * s), (int) (cy - 80 * s), (int) (36 * s), (int) (30 * s));
+
+        g.setColor(Color.YELLOW);
+        g.fillOval((int) (cx - 10 * s), (int) (cy - 72 * s), (int) (6 * s), (int) (4 * s));
+        g.fillOval((int) (cx + 4 * s), (int) (cy - 72 * s), (int) (6 * s), (int) (4 * s));
+        g.fillOval((int) (cx - 12 * s), (int) (cy - 65 * s), (int) (6 * s), (int) (4 * s));
+        g.fillOval((int) (cx + 6 * s), (int) (cy - 65 * s), (int) (6 * s), (int) (4 * s));
+
+        g.setColor(Color.BLACK);
+        g.drawArc((int) (cx - 8 * s), (int) (cy - 60 * s), (int) (16 * s), (int) (5 * s), 0, 180);
+
+        g.setStroke(new BasicStroke((float) (20 * s), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+        g.setColor(skinRed);
+        g.draw(new Line2D.Double(cx + 45 * s, cy - 35 * s, cx + 85 * s, cy - 60 * s));
+        g.draw(new Line2D.Double(cx + 85 * s, cy - 60 * s, cx + 70 * s, cy - 100 * s));
+        g.fillOval((int) (cx + 60 * s), (int) (cy - 115 * s), (int) (20 * s), (int) (20 * s));
+
+        g.draw(new Line2D.Double(cx + 40 * s, cy - 5 * s, cx + 80 * s, cy + 25 * s));
+        g.draw(new Line2D.Double(cx + 80 * s, cy + 25 * s, cx + 95 * s, cy - 15 * s));
+        g.fillOval((int) (cx + 85 * s), (int) (cy - 30 * s), (int) (20 * s), (int) (20 * s));
+
+        g.draw(new Line2D.Double(cx - 45 * s, cy - 35 * s, cx - 85 * s, cy - 60 * s));
+        g.draw(new Line2D.Double(cx - 85 * s, cy - 60 * s, cx - 70 * s, cy - 100 * s));
+        g.fillOval((int) (cx - 80 * s), (int) (cy - 115 * s), (int) (20 * s), (int) (20 * s));
+
+        g.draw(new Line2D.Double(cx - 40 * s, cy - 5 * s, cx - 80 * s, cy + 25 * s));
+        g.draw(new Line2D.Double(cx - 80 * s, cy + 25 * s, cx - 95 * s, cy - 15 * s));
+        g.fillOval((int) (cx - 105 * s), (int) (cy - 30 * s), (int) (20 * s), (int) (20 * s));
+
+        g.setStroke(new BasicStroke((float) (6 * s)));
+        g.setColor(Color.BLACK);
+        g.draw(new Line2D.Double(cx + 60 * s, cy - 47 * s, cx + 75 * s, cy - 38 * s));
+        g.draw(new Line2D.Double(cx - 60 * s, cy - 47 * s, cx - 75 * s, cy - 38 * s));
+        g.setColor(Color.LIGHT_GRAY);
+        g.setStroke(new BasicStroke((float) (18 * s)));
+        g.draw(new Line2D.Double(cx + 75 * s, cy - 80 * s, cx + 72 * s, cy - 90 * s));
+        g.draw(new Line2D.Double(cx - 75 * s, cy - 80 * s, cx - 72 * s, cy - 90 * s));
+        g.draw(new Line2D.Double(cx + 85 * s, cy + 5 * s, cx + 90 * s, cy - 5 * s));
+        g.draw(new Line2D.Double(cx - 85 * s, cy + 5 * s, cx - 90 * s, cy - 5 * s));
     }
 
+    // ================= Doraemon Scene =================
     void drawDoraemonGadgetScene(Graphics2D g2, long elapsed) {
-        beginStoryScreen(g2, new Color(55, 160, 220), new Color(22, 40, 120));
+        double p = clamp01(elapsed / (double) DORAEMON_SCENE_MS);
         Graphics2D g = (Graphics2D) g2.create();
         g.setClip(new RoundRectangle2D.Double(screenX, screenY, screenW, screenH, 12, 12));
-        for (int i = 0; i < 9; i++) {
-            g.setColor(new Color(255, 255, 255, 170));
-            int sx = screenX + 25 + (i * 47) % 365;
-            int sy = screenY + 25 + (i * 31) % 160;
-            g.fill(new Ellipse2D.Double(sx, sy, 4, 4));
-        }
 
-        double p = clamp01(elapsed / (double) DORAEMON_SCENE_MS);
-        drawDoraemon(g, 226, 300, 0.92, p);
+        if (p < 0.45) {
+            drawNobitaRoom(g);
+            int doorX = 350;
+            int doorY = 390;
+            double doorScale = 0;
+            double doorOpen = 0;
 
-        // Anywhere Door comes out of the pocket and opens.
-        double doorP = clamp01((p - 0.28) / 0.52);
-        int doorX = 318;
-        int doorY = 238 - (int) (18 * doorP);
-        int doorW = (int) (76 * doorP);
-        if (doorW > 2) {
-            g.setColor(new Color(201, 47, 133));
-            g.fill(new RoundRectangle2D.Double(doorX, doorY, doorW, 133, 10, 10));
-            g.setColor(new Color(255, 153, 205));
-            g.fill(new RoundRectangle2D.Double(doorX + 7, doorY + 8, Math.max(1, doorW - 14), 117, 7, 7));
-            g.setColor(new Color(55, 125, 200));
-            g.fill(new RoundRectangle2D.Double(doorX + 13, doorY + 15, Math.max(1, doorW - 26), 103, 5, 5));
-            g.setColor(new Color(255, 210, 232));
-            g.setStroke(new BasicStroke(3));
-            g.draw(new RoundRectangle2D.Double(doorX + 13, doorY + 15, Math.max(1, doorW - 26), 103, 5, 5));
-            g.setColor(new Color(255, 225, 75));
-            g.fill(new Ellipse2D.Double(doorX + doorW - 18, doorY + 65, 8, 8));
+            int dorX = 180;
+            double dorScale = 0.8;
+            int dorY = 390 - (int) (100 * dorScale);
+
+            if (p < 0.15) {
+                doorScale = (p / 0.15) * 1.1;
+                drawAnywhereDoorBack(g, doorX, doorY, doorScale, doorOpen, false);
+                drawAnywhereDoorFront(g, doorX, doorY, doorScale, doorOpen);
+                drawDoraemon(g, dorX, dorY, dorScale, p / 0.15);
+            } else if (p < 0.25) {
+                doorScale = 1.1;
+                drawAnywhereDoorBack(g, doorX, doorY, doorScale, doorOpen, false);
+                drawAnywhereDoorFront(g, doorX, doorY, doorScale, doorOpen);
+                drawDoraemon(g, dorX, dorY, dorScale, 0);
+            } else {
+                doorScale = 1.1;
+                double walk = (p - 0.25) / 0.20;
+                doorOpen = Math.min(1.0, walk * 4);
+
+                dorX = 180 + (int) ((doorX - 180) * walk);
+                dorScale = 0.8 * (1.0 - 0.5 * walk);
+                dorY = doorY - (int) (100 * dorScale);
+
+                drawAnywhereDoorBack(g, doorX, doorY, doorScale, doorOpen, true);
+                if (walk < 0.9) {
+                    drawDoraemon(g, dorX, dorY, dorScale, 0);
+                }
+                drawAnywhereDoorFront(g, doorX, doorY, doorScale, doorOpen);
+            }
+        } else if (p < 0.5) {
+            float flash = 1.0f;
+            if (p > 0.48)
+                flash = (float) (1.0 - (p - 0.48) / 0.02);
+            int alpha = Math.max(0, Math.min(255, (int) (255 * flash)));
+            g.setColor(new Color(255, 255, 255, alpha));
+            g.fillRect(screenX, screenY, screenW, screenH);
+        } else {
+            drawNatureScene(g);
+            int doorX = 250;
+            int doorY = 360;
+            double doorScale = 1.2;
+            double doorOpen = 1.0;
+
+            double emerge = (p - 0.5) / 0.25;
+            if (emerge > 1.0)
+                emerge = 1.0;
+
+            if (p > 0.85) {
+                doorOpen = Math.max(0.0, 1.0 - (p - 0.85) / 0.15);
+            }
+
+            // ---- แก้ไขตรงนี้: วาดประตู(ทั้งหน้าและหลัง)ก่อนโดราเอมอน
+            // เพื่อให้ประตูอยู่ด้านหลัง ----
+            drawAnywhereDoorBack(g, doorX, doorY, doorScale, doorOpen, false);
+            drawAnywhereDoorFront(g, doorX, doorY, doorScale, doorOpen);
+
+            if (emerge > 0.05) {
+                double dorScale = 0.4 + (0.6 * emerge);
+                int dorBaseY = doorY + (int) (50 * emerge);
+                int dorX = doorX - (int) (30 * emerge);
+                int dorY = dorBaseY - (int) (100 * dorScale);
+                drawDoraemon(g, dorX, dorY, dorScale, 0);
+            }
+            // ------------------------------------------------------------------
+
+            g.setColor(Color.WHITE);
+            g.setFont(new Font("SansSerif", Font.BOLD, 18));
+            g.drawString("ANYWHERE DOOR", 210, 166);
         }
-        g.setColor(Color.WHITE);
-        g.setFont(new Font("SansSerif", Font.BOLD, 18));
-        g.drawString("DORAEMON!", 198, 166);
-        g.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        g.drawString("Anywhere Door", 334, 392);
         g.dispose();
+    }
+
+    void drawNobitaRoom(Graphics2D g) {
+        g.setColor(new Color(245, 235, 210));
+        g.fillRect(screenX, screenY, screenW, screenH);
+
+        g.setColor(new Color(150, 180, 120));
+        g.fillRect(screenX, screenY + 160, screenW, screenH - 160);
+
+        g.setColor(new Color(110, 140, 80));
+        g.setStroke(new BasicStroke(4));
+        g.drawLine(screenX, screenY + 220, screenX + screenW, screenY + 220);
+        g.drawLine(screenX + 160, screenY + 160, screenX + 160, screenY + 220);
+        g.drawLine(screenX + 280, screenY + 220, screenX + 280, screenY + screenH);
+
+        g.setColor(new Color(173, 216, 230));
+        g.fillRect(screenX + 40, screenY + 40, 120, 100);
+        g.setColor(new Color(200, 170, 130));
+        g.setStroke(new BasicStroke(6));
+        g.drawRect(screenX + 40, screenY + 40, 120, 100);
+        g.drawLine(screenX + 100, screenY + 40, screenX + 100, screenY + 140);
+        g.drawLine(screenX + 40, screenY + 90, screenX + 160, screenY + 90);
+
+        g.setColor(new Color(139, 69, 19));
+        g.fillRect(screenX + 300, screenY + 100, 120, 15);
+        g.fillRect(screenX + 310, screenY + 115, 40, 60);
+        g.fillRect(screenX + 370, screenY + 115, 40, 60);
+    }
+
+    void drawNatureScene(Graphics2D g) {
+        g.setPaint(new GradientPaint(screenX, screenY, new Color(135, 206, 235), screenX, screenY + 200,
+                new Color(200, 240, 255)));
+        g.fillRect(screenX, screenY, screenW, screenH);
+
+        g.setColor(new Color(255, 220, 50));
+        g.fillOval(screenX + 320, screenY + 30, 60, 60);
+
+        g.setColor(new Color(255, 255, 255, 200));
+        g.fillOval(screenX + 60, screenY + 40, 80, 40);
+        g.fillOval(screenX + 100, screenY + 30, 90, 50);
+        g.fillOval(screenX + 150, screenY + 40, 70, 40);
+
+        g.setColor(new Color(120, 200, 80));
+        g.fillArc(screenX - 80, screenY + 130, 350, 200, 0, 180);
+        g.setColor(new Color(100, 180, 70));
+        g.fillArc(screenX + 120, screenY + 150, 380, 200, 0, 180);
+
+        g.setColor(new Color(80, 160, 50));
+        g.fillRect(screenX, screenY + 220, screenW, screenH - 220);
+    }
+
+    void drawAnywhereDoorBack(Graphics2D g, int x, int y, double scale, double openFactor, boolean destinationNature) {
+        int w = (int) (110 * scale);
+        int h = (int) (160 * scale);
+        int dx = x - w / 2;
+        int dy = y - h;
+
+        if (openFactor > 0) {
+            if (destinationNature) {
+                g.setColor(new Color(135, 206, 235));
+                g.fillRect(dx + 10, dy + 10, w - 20, h - 20);
+                g.setColor(new Color(80, 160, 50));
+                g.fillRect(dx + 10, dy + h / 2 + 20, w - 20, h / 2 - 30);
+            } else {
+                g.setColor(new Color(30, 20, 40));
+                g.fillRect(dx + 10, dy + 10, w - 20, h - 20);
+            }
+        }
+    }
+
+    void drawAnywhereDoorFront(Graphics2D g, int x, int y, double scale, double openFactor) {
+        int w = (int) (110 * scale);
+        int h = (int) (160 * scale);
+        int dx = x - w / 2;
+        int dy = y - h;
+
+        g.setColor(new Color(255, 105, 180));
+
+        g.fillRect(dx, dy, 10, h);
+        g.fillRect(dx + w - 10, dy, 10, h);
+        g.fillRect(dx, dy, w, 10);
+
+        g.fillRect(dx, dy + h - 10, w, 10);
+
+        if (openFactor < 1.0) {
+            int closedW = (int) ((w - 20) * (1.0 - openFactor));
+            if (closedW > 0) {
+                g.setColor(new Color(255, 182, 193));
+                g.fillRect(dx + 10, dy + 10, closedW, h - 20);
+                g.setColor(Color.DARK_GRAY);
+                g.setStroke(new BasicStroke(1));
+                g.drawRect(dx + 10, dy + 10, closedW, h - 20);
+            }
+        }
+        if (openFactor > 0) {
+            int openW = (int) ((w - 20) * openFactor * 0.8);
+            g.setColor(new Color(255, 150, 180));
+            g.fillPolygon(
+                    new int[] { dx + w - 10, dx + w - 10 + openW, dx + w - 10 + openW, dx + w - 10 },
+                    new int[] { dy + 10, dy + 25, dy + h - 35, dy + h - 10 },
+                    4);
+            g.setColor(new Color(200, 80, 130));
+            g.drawPolygon(
+                    new int[] { dx + w - 10, dx + w - 10 + openW, dx + w - 10 + openW, dx + w - 10 },
+                    new int[] { dy + 10, dy + 25, dy + h - 35, dy + h - 10 },
+                    4);
+        }
     }
 
     void drawDoraemon(Graphics2D g, int cx, int cy, double scale, double p) {
@@ -727,13 +805,11 @@ public class Assignment1_67050437_67050473 extends JPanel {
         Color blueEdge = new Color(22, 91, 151);
         double headR = 66 * scale;
 
-        // Ground shadow and tail are behind the body.
         g.setColor(new Color(0, 0, 0, 75));
         g.fill(new Ellipse2D.Double(cx - 84 * scale, cy + 100 * scale, 168 * scale, 18 * scale));
         g.setColor(new Color(218, 45, 48));
         g.fill(new Ellipse2D.Double(cx + 44 * scale, cy + 54 * scale, 22 * scale, 22 * scale));
 
-        // Blue body with a clearly separate white belly and two white feet.
         g.setColor(blue);
         g.fill(new RoundRectangle2D.Double(cx - 53 * scale, cy + 22 * scale, 106 * scale, 92 * scale, 34, 34));
         g.setColor(blueEdge);
@@ -749,7 +825,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.draw(new Ellipse2D.Double(cx - 49 * scale, cy + 93 * scale, 54 * scale, 27 * scale));
         g.draw(new Ellipse2D.Double(cx - 5 * scale, cy + 93 * scale, 54 * scale, 27 * scale));
 
-        // Arms are attached to the body before the large head is drawn.
         g.setColor(blue);
         g.setStroke(new BasicStroke((float) (18 * scale), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g.draw(new Line2D.Double(cx - 48 * scale, cy + 42 * scale, cx - 73 * scale, cy + 73 * scale));
@@ -759,7 +834,7 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.setStroke(new BasicStroke((float) (2 * scale)));
         g.draw(new Ellipse2D.Double(cx - 87 * scale, cy + 63 * scale, 25 * scale, 25 * scale));
 
-        double reach = clamp01((p - 0.18) / 0.55);
+        double reach = (p > 0) ? clamp01(p) : 0;
         g.setColor(blue);
         g.setStroke(new BasicStroke((float) (18 * scale), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g.draw(new Line2D.Double(cx + 48 * scale, cy + 42 * scale, cx + (78 + 34 * reach) * scale,
@@ -772,7 +847,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.draw(new Ellipse2D.Double(cx + (68 + 34 * reach) * scale, cy + (41 - 17 * reach) * scale,
                 25 * scale, 25 * scale));
 
-        // The head is one large blue circle with a separate white face mask.
         g.setColor(blue);
         g.fill(new Ellipse2D.Double(cx - headR, cy - headR, 2 * headR, 2 * headR));
         g.setColor(blueEdge);
@@ -793,7 +867,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.setStroke(new BasicStroke((float) (2 * scale)));
         g.draw(face);
 
-        // Large eyes, red nose, whiskers, and open smiling mouth.
         g.setColor(Color.WHITE);
         g.fill(new Ellipse2D.Double(cx - 29 * scale, cy - 56 * scale, 27 * scale, 38 * scale));
         g.fill(new Ellipse2D.Double(cx + 2 * scale, cy - 56 * scale, 27 * scale, 38 * scale));
@@ -828,7 +901,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.draw(new Line2D.Double(cx + 27 * scale, cy + 13 * scale, cx + 61 * scale, cy + 13 * scale));
         g.draw(new Line2D.Double(cx + 27 * scale, cy + 24 * scale, cx + 57 * scale, cy + 31 * scale));
 
-        // Red collar, yellow bell, and the white front pocket are on the body.
         g.setColor(new Color(220, 35, 45));
         g.fill(new RoundRectangle2D.Double(cx - 46 * scale, cy + 46 * scale, 92 * scale, 12 * scale, 6, 6));
         g.setColor(Color.YELLOW);
@@ -841,6 +913,7 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.draw(new Arc2D.Double(cx - 35 * scale, cy + 67 * scale, 70 * scale, 46 * scale, 0, -180, Arc2D.OPEN));
     }
 
+    // ================= Ultraman Scene =================
     void drawUltramanBeamScene(Graphics2D g2, long elapsed) {
         beginStoryScreen(g2, new Color(8, 14, 45), new Color(75, 10, 25));
         Graphics2D g = (Graphics2D) g2.create();
@@ -854,11 +927,8 @@ public class Assignment1_67050437_67050473 extends JPanel {
         int ultraCy = 328;
         double ultraScale = 0.86;
 
-        // The Specium beam grows from Ultraman's crossed arms.
         double beam = clamp01((p - 0.22) / 0.55);
         if (beam > 0) {
-            // The beam starts exactly at the two crossed wrists drawn in
-            // drawUltraman, so it can never float above the hands.
             int bx = ultraCx + (int) (43 * ultraScale);
             int by = ultraCy - (int) (3 * ultraScale);
             int tip = bx + (int) (220 * beam);
@@ -874,8 +944,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
             g.setStroke(new BasicStroke(5));
             g.draw(new Line2D.Double(bx, by, tip, by));
         }
-        // Draw the hero after the beam so the crossed wrists remain visible
-        // on top of the light, exactly where the beam is emitted.
         drawUltraman(g, ultraCx, ultraCy, ultraScale);
         g.setColor(Color.WHITE);
         g.setFont(new Font("SansSerif", Font.BOLD, 18));
@@ -924,12 +992,9 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.setStroke(new BasicStroke((float) (5 * scale)));
         g.draw(new Line2D.Double(cx, cy - 13 * scale, cx, cy + 58 * scale));
 
-        // Specium pose: both forearms cross in front of the chest.
         Color armEdge = new Color(77, 87, 103);
         g.setColor(armEdge);
         g.setStroke(new BasicStroke((float) (24 * scale), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        // One arm sweeps across the chest and the other bends upward from the
-        // lower right. This is the recognizable crossed-wrist Specium pose.
         g.draw(new Line2D.Double(cx - 31 * scale, cy - 21 * scale, cx + 46 * scale, cy - 5 * scale));
         Path2D raisedArmEdge = new Path2D.Double();
         raisedArmEdge.moveTo(cx + 34 * scale, cy + 39 * scale);
@@ -992,8 +1057,7 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.fill(new Ellipse2D.Double(cx - 9 * scale, cy + 30 * scale, 18 * scale, 18 * scale));
     }
 
-    // A code-drawn approximation of the supplied seminar poster.
-    // It deliberately does not read or display the original JPG file.
+    // ================= Poster Scene =================
     void drawSeminarPoster(Graphics2D g2, long elapsed) {
         Graphics2D g = (Graphics2D) g2.create();
         g.setClip(new RoundRectangle2D.Double(screenX, screenY, screenW, screenH, 12, 12));
@@ -1001,7 +1065,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
                 new Color(245, 165, 25)));
         g.fillRect(screenX, screenY, screenW, screenH);
 
-        // Thai-style ornamental pattern and gold curtain curves.
         for (int x = screenX - 8; x < screenX + screenW + 18; x += 26) {
             for (int y = screenY + 5; y < screenY + screenH; y += 30) {
                 g.setColor(new Color(255, 245, 170, 100));
@@ -1015,15 +1078,12 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.draw(new CubicCurve2D.Double(90, 143, 155, 115, 225, 143, 275, 126));
         g.draw(new CubicCurve2D.Double(365, 126, 430, 145, 488, 112, 535, 145));
 
-        // Buddha, the praying presenter, gifts, temple, and Naga ornaments.
-        // They are layered in the same order as the reference poster.
         drawPosterBuddha(g, 375, 287, 0.86);
         drawPosterGifts(g, 286, 403);
         drawPosterNaga(g, 108, 375, false);
         drawPosterNaga(g, 514, 375, true);
         drawPosterPerson(g, 455, 170, 0.96);
 
-        // Large text from the poster, drawn as text rather than an image.
         drawPosterText(g, "งานพิธีบุญใหญ่สัมนามีเดีย", 280, 178, 19,
                 new Color(8, 74, 160), Color.WHITE, 2);
         drawPosterText(g, "มีเดียรวมใจ", 215, 222, 25,
@@ -1045,11 +1105,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
                 370, screenY + screenH - 38, screenX + screenW, screenY + screenH - 16));
         g.dispose();
         drawMemoriesTitle(g2, 1.0);
-    }
-
-    void centerText(Graphics2D g, String text, int cx, int y) {
-        FontMetrics fm = g.getFontMetrics();
-        g.drawString(text, cx - fm.stringWidth(text) / 2, y);
     }
 
     void drawPosterText(Graphics2D g, String text, int cx, int y, int size, Color fill, Color outline,
@@ -1105,10 +1160,7 @@ public class Assignment1_67050437_67050473 extends JPanel {
 
     void drawPosterPerson(Graphics2D g, int cx, int top, double s) {
         int headR = (int) (26 * s);
-        int headY = top + headR;
         Color skin = new Color(224, 164, 116);
-        // Gray, side-swept hair and a separate face shape match the reference
-        // portrait more closely than a single flat oval.
         g.setColor(new Color(132, 133, 126));
         g.fill(new Ellipse2D.Double(cx - 30 * s, top - 5 * s, 60 * s, 32 * s));
         g.setColor(skin);
@@ -1149,7 +1201,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.setColor(new Color(150, 48, 45));
         g.setStroke(new BasicStroke((float) (2 * s)));
         g.draw(new Arc2D.Double(cx - 10 * s, top + 43 * s, 20 * s, 10 * s, 200, 140, Arc2D.OPEN));
-        // Black polo body with a bright white center panel, as in the poster.
         g.setColor(new Color(22, 22, 22));
         g.fill(new RoundRectangle2D.Double(cx - 53 * s, top + 48 * s, 106 * s, 253 * s, 18, 18));
         g.setColor(Color.WHITE);
@@ -1189,7 +1240,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.fill(new Ellipse2D.Double(cx + 20 * s, top + 118 * s, 19 * s, 21 * s));
         g.setColor(new Color(206, 140, 78));
         g.fill(new Ellipse2D.Double(cx + 25 * s, top + 123 * s, 9 * s, 11 * s));
-        // Small shirt emblem, echoing the reference image.
         g.setColor(new Color(55, 55, 55));
         g.setFont(new Font("SansSerif", Font.BOLD, (int) (22 * s)));
         g.drawString("S", (float) (cx + 18 * s), (float) (top + 92 * s));
@@ -1198,7 +1248,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
     }
 
     void drawPosterGifts(Graphics2D g, int x, int y) {
-        // A small temple silhouette sits behind the gift baskets.
         g.setColor(new Color(107, 70, 38));
         g.fill(new Rectangle2D.Double(365, y - 45, 47, 45));
         g.setColor(new Color(238, 188, 52));
@@ -1211,7 +1260,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.fill(new Rectangle2D.Double(370, y - 31, 8, 31));
         g.fill(new Rectangle2D.Double(398, y - 31, 8, 31));
 
-        // Gift baskets and recognizable small product packages.
         for (int i = 0; i < 7; i++) {
             int bx = x - 62 + i * 20;
             int by = y - (i % 3) * 12;
@@ -1272,23 +1320,14 @@ public class Assignment1_67050437_67050473 extends JPanel {
 
     // ================= Reusable drawing pieces =================
 
-    /**
-     * The disc (140px across) is taller than the player panel (90px), so even once
-     * drawPlayerFront occludes everything overlapping the panel, the very bottom of
-     * the disc can still poke out below the panel's bottom edge, over the floor.
-     * Repainting the floor strip right below the panel papers over that sliver --
-     * cheap and correct, since that's exactly the floor's own color already there.
-     */
     void restoreFloorBelowPlayer(Graphics2D g2, int playerBottomY) {
         g2.setColor(new Color(60, 48, 40));
         g2.fill(new Rectangle2D.Double(0, playerBottomY, W, H - playerBottomY));
     }
 
     void drawRoomBackground(Graphics2D g2) {
-        // wall
         g2.setColor(new Color(40, 36, 48));
         g2.fillRect(0, 0, W, H);
-        // floor
         g2.setColor(new Color(60, 48, 40));
         g2.fillRect(0, 460, W, H - 460);
         Path2D floorLine = new Path2D.Double();
@@ -1298,20 +1337,12 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g2.setStroke(new BasicStroke(3));
         g2.draw(floorLine);
 
-        // a soft curved shelf line behind the player, using CubicCurve2D
         CubicCurve2D shelf = new CubicCurve2D.Double(60, 460, 200, 440, 400, 440, 540, 460);
         g2.setColor(new Color(90, 76, 60));
         g2.setStroke(new BasicStroke(6));
         g2.draw(shelf);
     }
 
-    /**
-     * Solid panel body + the slot rendered as a plain dark opening. Drawn BEFORE
-     * the disc, so that when no disc is behind it yet, the slot just reads as an
-     * empty dark slit (as before). The slot now sits near the TOP edge of the
-     * panel (y + 8) instead of mid-panel, so the disc visibly enters near the
-     * top of the player before disappearing behind it.
-     */
     void drawPlayerBase(Graphics2D g2, int x, int y, int w, int h) {
         g2.setColor(new Color(25, 25, 28));
         g2.fill(new RoundRectangle2D.Double(x, y, w, h, 10, 10));
@@ -1320,16 +1351,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g2.fill(new RoundRectangle2D.Double(x + 60, y + 8, w - 120, 16, 8, 8));
     }
 
-    /**
-     * Redraws the panel ON TOP of whatever was just painted (a disc mid-insertion),
-     * but with the slot opening cut out of the fill using constructive area
-     * geometry
-     * (Area.subtract). Anything drawn before this call gets hidden wherever it
-     * overlaps the solid panel, and stays visible only through the slot cut-out --
-     * this is what makes a sliding disc look like it's genuinely going INSIDE the
-     * player instead of just floating in front of it.
-     * Slot cut-out matches drawPlayerBase: near the top edge of the panel (y + 8).
-     */
     void drawPlayerFront(Graphics2D g2, int x, int y, int w, int h) {
         Area panel = new Area(new RoundRectangle2D.Double(x, y, w, h, 10, 10));
         Area slotHole = new Area(new RoundRectangle2D.Double(x + 60, y + 8, w - 120, 16, 8, 8));
@@ -1342,29 +1363,22 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g2.setStroke(new BasicStroke(2));
         g2.draw(new RoundRectangle2D.Double(x, y, w, h, 10, 10));
 
-        // small buttons using lines/circles (moved down slightly so they clear the
-        // slot, which now sits higher up near the panel's top edge)
         g2.setColor(new Color(90, 90, 100));
         g2.fill(new Ellipse2D.Double(x + w - 40, y + 62, 16, 16));
         g2.fill(new Ellipse2D.Double(x + w - 65, y + 62, 16, 16));
 
-        // brand line detail (QuadCurve2D), also nudged down to sit below the slot
         QuadCurve2D detail = new QuadCurve2D.Double(x + 15, y + 66, x + 40, y + 80, x + 65, y + 66);
         g2.setColor(new Color(70, 70, 78));
         g2.setStroke(new BasicStroke(2));
         g2.draw(detail);
     }
 
-    /** Draws the CD/DVD disc using ONLY the midpoint circle algorithm output. */
     void drawDisc(Graphics2D g2, int cx, int cy, int radius, double shine) {
-        // Outer edge via midpoint circle algorithm (plotted as tiny filled squares)
         List<Point> outer = midpointCircle(cx, cy, radius);
         g2.setColor(new Color(210, 215, 225));
         for (Point p : outer) {
             g2.fillRect(p.x, p.y, 2, 2);
         }
-        // Fill the disc body by drawing successively smaller midpoint circles
-        // (keeps everything within "midpoint circle algorithm" rather than fillOval)
         for (int r = radius - 1; r > 0; r -= 1) {
             List<Point> ring = midpointCircle(cx, cy, r);
             float f = r / (float) radius;
@@ -1376,7 +1390,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
                 g2.fillRect(p.x, p.y, 2, 2);
             }
         }
-        // rainbow shine arcs (curves) to sell the "shiny disc" look
         g2.setStroke(new BasicStroke(2));
         Color[] shineColors = { new Color(255, 120, 120, 120), new Color(120, 255, 180, 120),
                 new Color(140, 160, 255, 120) };
@@ -1388,12 +1401,10 @@ public class Assignment1_67050437_67050473 extends JPanel {
             g2.setColor(shineColors[i]);
             g2.draw(shineArc);
         }
-        // center hole via midpoint circle algorithm too
         List<Point> hole = midpointCircle(cx, cy, Math.max(6, radius / 8));
         g2.setColor(new Color(20, 20, 24));
         for (Point p : hole)
             g2.fillRect(p.x, p.y, 2, 2);
-        // fill center hole solid
         int hr = Math.max(6, radius / 8);
         for (int r = hr - 1; r > 0; r--) {
             List<Point> ring = midpointCircle(cx, cy, r);
@@ -1404,21 +1415,18 @@ public class Assignment1_67050437_67050473 extends JPanel {
     }
 
     void drawTVFrame(Graphics2D g2) {
-        // outer TV body
         g2.setColor(new Color(35, 32, 30));
         g2.fill(new RoundRectangle2D.Double(50, 100, 500, 380, 20, 20));
         g2.setColor(new Color(60, 55, 50));
         g2.setStroke(new BasicStroke(3));
         g2.draw(new RoundRectangle2D.Double(50, 100, 500, 380, 20, 20));
 
-        // stand (lines)
         g2.setStroke(new BasicStroke(6));
         g2.setColor(new Color(35, 32, 30));
         g2.draw(new Line2D.Double(220, 480, 180, 540));
         g2.draw(new Line2D.Double(380, 480, 420, 540));
         g2.draw(new Line2D.Double(150, 540, 450, 540));
 
-        // small speaker grille dots (lines)
         g2.setStroke(new BasicStroke(2));
         g2.setColor(new Color(70, 65, 60));
         for (int i = 0; i < 6; i++) {
@@ -1426,15 +1434,12 @@ public class Assignment1_67050437_67050473 extends JPanel {
         }
     }
 
-    /** Classic bouncing "DVD" wordmark, built from Path2D letter shapes. */
     void drawDVDLogo(Graphics2D g2, double x, double y, Color c) {
         g2.setColor(c);
         Font old = g2.getFont();
         g2.setFont(new Font("SansSerif", Font.BOLD, 34));
         g2.drawString("DVD", (float) x + 8, (float) y + 30);
 
-        // little TV-play triangle icon beside it, drawn via Path2D (a "curve/line"
-        // shape)
         Path2D tri = new Path2D.Double();
         tri.moveTo(x + logoW - 26, y + 10);
         tri.lineTo(x + logoW - 26, y + 36);
@@ -1442,7 +1447,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         tri.closePath();
         g2.fill(tri);
 
-        // underline curve
         QuadCurve2D underline = new QuadCurve2D.Double(x, y + 40, x + logoW / 2.0, y + 46, x + logoW, y + 40);
         g2.setStroke(new BasicStroke(2));
         g2.draw(underline);
