@@ -20,13 +20,15 @@ public class Assignment1_67050437_67050473 extends JPanel {
     static final int T_TV_CUT_END = 3900; // quick white-flash transition to TV
     static final int T_TV_STATIC_END = 5400; // old CRT "just switched on" static/snow, ~1.5s
     static final int T_TV_BLACK_END = 6000; // static settles to black before the logo appears
+
     // Story after the DVD logo reaches a corner.
     static final int BEN_SCENE_MS = 5000;
     static final int STATIC_ONE_MS = 1000;
     static final int DORAEMON_SCENE_MS = 5000;
     static final int ULTRAMAN_SCENE_MS = 5000;
-    static final int STATIC_TWO_MS = 2000;
-    static final int POSTER_SCENE_MS = 6000;
+    static final int STATIC_TWO_MS = 1500; // จอซ่าไม่มีข้อความ
+    static final int WAKEUP_SCENE_MS = 4000; // ฉาก Your memories end
+    static final int CG_SCENE_MS = 4000; // ฉาก Computer Graphics
 
     long startTime = -1;
     Timer timer;
@@ -347,25 +349,31 @@ public class Assignment1_67050437_67050473 extends JPanel {
         }
 
         long t = sinceCorner;
-        if (t < BEN_SCENE_MS) {
+        long t0 = BEN_SCENE_MS;
+        long t1 = t0 + STATIC_ONE_MS;
+        long t2 = t1 + DORAEMON_SCENE_MS;
+        long t3 = t2 + STATIC_ONE_MS;
+        long t4 = t3 + ULTRAMAN_SCENE_MS;
+        long t5 = t4 + STATIC_TWO_MS;
+        long t6 = t5 + WAKEUP_SCENE_MS;
+        long t7 = t6 + CG_SCENE_MS;
+
+        if (t < t0) {
             drawFourArmsTransformation(g2, t);
-        } else if (t < BEN_SCENE_MS + STATIC_ONE_MS) {
-            drawStoryStatic(g2, t - BEN_SCENE_MS, "CHANNEL LOST");
-        } else if (t < BEN_SCENE_MS + STATIC_ONE_MS + DORAEMON_SCENE_MS) {
-            drawDoraemonGadgetScene(g2, t - BEN_SCENE_MS - STATIC_ONE_MS);
-        } else if (t < BEN_SCENE_MS + STATIC_ONE_MS + DORAEMON_SCENE_MS + STATIC_ONE_MS) {
-            drawStoryStatic(g2, t - BEN_SCENE_MS - STATIC_ONE_MS - DORAEMON_SCENE_MS, "CHANNEL LOST");
-        } else if (t < BEN_SCENE_MS + STATIC_ONE_MS + DORAEMON_SCENE_MS + STATIC_ONE_MS + ULTRAMAN_SCENE_MS) {
-            drawUltramanBeamScene(g2, t - BEN_SCENE_MS - STATIC_ONE_MS - DORAEMON_SCENE_MS - STATIC_ONE_MS);
-        } else if (t < BEN_SCENE_MS + STATIC_ONE_MS + DORAEMON_SCENE_MS + STATIC_ONE_MS + ULTRAMAN_SCENE_MS
-                + STATIC_TWO_MS) {
-            drawStoryStatic(g2,
-                    t - BEN_SCENE_MS - STATIC_ONE_MS - DORAEMON_SCENE_MS - STATIC_ONE_MS - ULTRAMAN_SCENE_MS,
-                    "CHANNEL LOST");
-        } else if (t < BEN_SCENE_MS + STATIC_ONE_MS + DORAEMON_SCENE_MS + STATIC_ONE_MS + ULTRAMAN_SCENE_MS
-                + STATIC_TWO_MS + POSTER_SCENE_MS) {
-            drawSeminarPoster(g2, t - BEN_SCENE_MS - STATIC_ONE_MS - DORAEMON_SCENE_MS - STATIC_ONE_MS
-                    - ULTRAMAN_SCENE_MS - STATIC_TWO_MS);
+        } else if (t < t1) {
+            drawStoryStatic(g2, t - t0, "CHANNEL LOST");
+        } else if (t < t2) {
+            drawDoraemonGadgetScene(g2, t - t1);
+        } else if (t < t3) {
+            drawStoryStatic(g2, t - t2, "CHANNEL LOST");
+        } else if (t < t4) {
+            drawUltramanBeamScene(g2, t - t3);
+        } else if (t < t5) {
+            drawStoryStatic(g2, t - t4, ""); // จอซ่าเฉยๆ ไม่มีข้อความ
+        } else if (t < t6) {
+            drawWakeUpScene(g2, t - t5);
+        } else if (t < t7) {
+            drawCGScene(g2, t - t6);
         } else {
             resetAnimation();
         }
@@ -389,12 +397,55 @@ public class Assignment1_67050437_67050473 extends JPanel {
         for (int y = screenY; y < screenY + screenH; y += 4)
             g.fillRect(screenX, y, screenW, 1);
 
-        float pulse = 0.75f + 0.25f * (float) Math.sin(elapsed * 0.02);
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, pulse));
-        g.setColor(Color.WHITE);
-        g.setFont(new Font("SansSerif", Font.BOLD, 22));
+        if (message != null && !message.isEmpty()) {
+            float pulse = 0.75f + 0.25f * (float) Math.sin(elapsed * 0.02);
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, pulse));
+            g.setColor(Color.WHITE);
+            g.setFont(new Font("SansSerif", Font.BOLD, 22));
+            FontMetrics fm = g.getFontMetrics();
+            g.drawString(message, screenX + (screenW - fm.stringWidth(message)) / 2, screenY + screenH / 2);
+        }
+        g.dispose();
+    }
+
+    // ================= Wake Up & CG End Scenes =================
+    void drawWakeUpScene(Graphics2D g2, long elapsed) {
+        Graphics2D g = (Graphics2D) g2.create();
+        g.setClip(new RoundRectangle2D.Double(screenX, screenY, screenW, screenH, 12, 12));
+        g.setColor(Color.BLACK);
+        g.fillRect(screenX, screenY, screenW, screenH);
+
+        double fade = clamp01(elapsed / 2000.0);
+        g.setColor(new Color(255, 255, 255, (int) (255 * fade)));
+        g.setFont(new Font("Serif", Font.ITALIC, 24));
+
+        String line1 = "Your memories end";
+        String line2 = "Time to wake up";
+
         FontMetrics fm = g.getFontMetrics();
-        g.drawString(message, screenX + (screenW - fm.stringWidth(message)) / 2, screenY + screenH / 2);
+        int y1 = screenY + screenH / 2 - 15;
+        int y2 = screenY + screenH / 2 + 25;
+
+        g.drawString(line1, screenX + (screenW - fm.stringWidth(line1)) / 2, y1);
+        g.drawString(line2, screenX + (screenW - fm.stringWidth(line2)) / 2, y2);
+
+        g.dispose();
+    }
+
+    void drawCGScene(Graphics2D g2, long elapsed) {
+        Graphics2D g = (Graphics2D) g2.create();
+        g.setClip(new RoundRectangle2D.Double(screenX, screenY, screenW, screenH, 12, 12));
+        g.setColor(Color.BLACK);
+        g.fillRect(screenX, screenY, screenW, screenH);
+
+        double fade = clamp01(elapsed / 1500.0);
+        g.setColor(new Color(255, 255, 255, (int) (255 * fade)));
+        g.setFont(new Font("SansSerif", Font.BOLD, 32));
+
+        String text = "Computer Graphics";
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(text, screenX + (screenW - fm.stringWidth(text)) / 2, screenY + screenH / 2 + 10);
+
         g.dispose();
     }
 
@@ -672,8 +723,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
                 doorOpen = Math.max(0.0, 1.0 - (p - 0.85) / 0.15);
             }
 
-            // ---- แก้ไขตรงนี้: วาดประตู(ทั้งหน้าและหลัง)ก่อนโดราเอมอน
-            // เพื่อให้ประตูอยู่ด้านหลัง ----
             drawAnywhereDoorBack(g, doorX, doorY, doorScale, doorOpen, false);
             drawAnywhereDoorFront(g, doorX, doorY, doorScale, doorOpen);
 
@@ -684,11 +733,10 @@ public class Assignment1_67050437_67050473 extends JPanel {
                 int dorY = dorBaseY - (int) (100 * dorScale);
                 drawDoraemon(g, dorX, dorY, dorScale, 0);
             }
-            // ------------------------------------------------------------------
 
             g.setColor(Color.WHITE);
             g.setFont(new Font("SansSerif", Font.BOLD, 18));
-            g.drawString("ANYWHERE DOOR", 210, 166);
+            g.drawString("ANYWHERE DOOR!", 210, 166);
         }
         g.dispose();
     }
@@ -1057,267 +1105,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.fill(new Ellipse2D.Double(cx - 9 * scale, cy + 30 * scale, 18 * scale, 18 * scale));
     }
 
-    // ================= Poster Scene =================
-    void drawSeminarPoster(Graphics2D g2, long elapsed) {
-        Graphics2D g = (Graphics2D) g2.create();
-        g.setClip(new RoundRectangle2D.Double(screenX, screenY, screenW, screenH, 12, 12));
-        g.setPaint(new GradientPaint(screenX, screenY, new Color(70, 190, 225), screenX, screenY + screenH,
-                new Color(245, 165, 25)));
-        g.fillRect(screenX, screenY, screenW, screenH);
-
-        for (int x = screenX - 8; x < screenX + screenW + 18; x += 26) {
-            for (int y = screenY + 5; y < screenY + screenH; y += 30) {
-                g.setColor(new Color(255, 245, 170, 100));
-                g.setStroke(new BasicStroke(1));
-                g.draw(new Arc2D.Double(x, y, 16, 22, 20, 140, Arc2D.OPEN));
-                g.draw(new Arc2D.Double(x + 5, y + 5, 7, 12, 200, 140, Arc2D.OPEN));
-            }
-        }
-        g.setColor(new Color(255, 240, 170, 190));
-        g.setStroke(new BasicStroke(9));
-        g.draw(new CubicCurve2D.Double(90, 143, 155, 115, 225, 143, 275, 126));
-        g.draw(new CubicCurve2D.Double(365, 126, 430, 145, 488, 112, 535, 145));
-
-        drawPosterBuddha(g, 375, 287, 0.86);
-        drawPosterGifts(g, 286, 403);
-        drawPosterNaga(g, 108, 375, false);
-        drawPosterNaga(g, 514, 375, true);
-        drawPosterPerson(g, 455, 170, 0.96);
-
-        drawPosterText(g, "งานพิธีบุญใหญ่สัมนามีเดีย", 280, 178, 19,
-                new Color(8, 74, 160), Color.WHITE, 2);
-        drawPosterText(g, "มีเดียรวมใจ", 215, 222, 25,
-                new Color(255, 248, 220), new Color(198, 130, 18), 3);
-        drawPosterText(g, "สานสายสัมพันธ์", 215, 262, 21,
-                new Color(128, 54, 15), new Color(255, 240, 160), 2);
-        drawPosterText(g, "ณ ห้องมีเดีย ชั้น ๓ อาคารพระจอมเกล้า", 220, 299, 14,
-                Color.WHITE, new Color(222, 110, 155), 1);
-        drawPosterText(g, "เสาร์ ๒๗", 215, 338, 23,
-                new Color(245, 255, 240), new Color(58, 188, 81), 2);
-        drawPosterText(g, "มิถุนายน ๒๕๖๙", 215, 363, 16,
-                new Color(245, 255, 240), new Color(58, 188, 81), 1);
-
-        g.setColor(new Color(20, 170, 85));
-        g.fill(new Rectangle2D.Double(screenX, screenY + screenH - 19, screenW, 19));
-        g.setColor(new Color(255, 255, 255, 170));
-        g.setStroke(new BasicStroke(3));
-        g.draw(new CubicCurve2D.Double(screenX, screenY + screenH - 31, 190, screenY + screenH - 9,
-                370, screenY + screenH - 38, screenX + screenW, screenY + screenH - 16));
-        g.dispose();
-        drawMemoriesTitle(g2, 1.0);
-    }
-
-    void drawPosterText(Graphics2D g, String text, int cx, int y, int size, Color fill, Color outline,
-            int outlineSize) {
-        g.setFont(new Font("Leelawadee UI", Font.BOLD, size));
-        FontMetrics fm = g.getFontMetrics();
-        int x = cx - fm.stringWidth(text) / 2;
-        g.setColor(outline);
-        for (int dx = -outlineSize; dx <= outlineSize; dx++) {
-            for (int dy = -outlineSize; dy <= outlineSize; dy++) {
-                if (dx * dx + dy * dy <= outlineSize * outlineSize + 1)
-                    g.drawString(text, x + dx, y + dy);
-            }
-        }
-        g.setColor(fill);
-        g.drawString(text, x, y);
-    }
-
-    void drawPosterBuddha(Graphics2D g, int cx, int cy, double s) {
-        Color gold = new Color(183, 125, 24);
-        g.setColor(new Color(131, 78, 13, 130));
-        g.fill(new Ellipse2D.Double(cx - 63 * s, cy - 120 * s, 126 * s, 220 * s));
-        g.setColor(new Color(206, 146, 30));
-        g.fill(new Ellipse2D.Double(cx - 31 * s, cy - 100 * s, 62 * s, 62 * s));
-        g.setColor(new Color(235, 187, 55));
-        g.fill(new Ellipse2D.Double(cx - 8 * s, cy - 130 * s, 16 * s, 34 * s));
-        g.setColor(gold);
-        g.fill(new RoundRectangle2D.Double(cx - 52 * s, cy - 42 * s, 104 * s, 104 * s, 30, 30));
-        g.setColor(new Color(211, 158, 35));
-        g.fill(new Ellipse2D.Double(cx - 38 * s, cy - 78 * s, 15 * s, 24 * s));
-        g.fill(new Ellipse2D.Double(cx + 23 * s, cy - 78 * s, 15 * s, 24 * s));
-        g.setStroke(new BasicStroke((float) (18 * s), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.draw(new Line2D.Double(cx - 38 * s, cy - 20 * s, cx - 69 * s, cy + 73 * s));
-        g.draw(new Line2D.Double(cx + 38 * s, cy - 20 * s, cx + 69 * s, cy + 73 * s));
-        g.setColor(new Color(91, 54, 14));
-        g.fill(new Ellipse2D.Double(cx - 14 * s, cy - 74 * s, 8 * s, 8 * s));
-        g.fill(new Ellipse2D.Double(cx + 6 * s, cy - 74 * s, 8 * s, 8 * s));
-        g.setStroke(new BasicStroke((float) (2 * s)));
-        g.draw(new Line2D.Double(cx - 17 * s, cy - 81 * s, cx - 5 * s, cy - 84 * s));
-        g.draw(new Line2D.Double(cx + 5 * s, cy - 84 * s, cx + 17 * s, cy - 81 * s));
-        g.setColor(new Color(151, 96, 16));
-        g.draw(new Line2D.Double(cx, cy - 70 * s, cx - 3 * s, cy - 55 * s));
-        g.setStroke(new BasicStroke((float) (3 * s)));
-        g.draw(new Arc2D.Double(cx - 11 * s, cy - 59 * s, 22 * s, 9 * s, 200, 140, Arc2D.OPEN));
-        g.setColor(new Color(246, 201, 78));
-        g.draw(new Line2D.Double(cx - 40 * s, cy - 9 * s, cx + 40 * s, cy - 9 * s));
-        g.draw(new Line2D.Double(cx - 42 * s, cy + 8 * s, cx + 42 * s, cy + 8 * s));
-        g.setColor(new Color(249, 202, 74));
-        g.setStroke(new BasicStroke((float) (10 * s), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.draw(new Line2D.Double(cx - 28 * s, cy + 31 * s, cx + 8 * s, cy + 40 * s));
-        g.draw(new Line2D.Double(cx + 28 * s, cy + 31 * s, cx - 8 * s, cy + 40 * s));
-    }
-
-    void drawPosterPerson(Graphics2D g, int cx, int top, double s) {
-        int headR = (int) (26 * s);
-        Color skin = new Color(224, 164, 116);
-        g.setColor(new Color(132, 133, 126));
-        g.fill(new Ellipse2D.Double(cx - 30 * s, top - 5 * s, 60 * s, 32 * s));
-        g.setColor(skin);
-        g.fill(new Ellipse2D.Double(cx - headR - 4 * s, top + 20 * s, 10 * s, 18 * s));
-        g.fill(new Ellipse2D.Double(cx + headR - 6 * s, top + 20 * s, 10 * s, 18 * s));
-        Shape personFace = new Ellipse2D.Double(cx - headR, top, 2 * headR, 2 * headR);
-        g.setPaint(new GradientPaint(cx - headR, top, new Color(244, 190, 142), cx + headR,
-                top + 2 * headR, new Color(205, 133, 92)));
-        g.fill(personFace);
-        g.setColor(new Color(145, 88, 62));
-        g.setStroke(new BasicStroke((float) (2 * s)));
-        g.draw(personFace);
-        g.setColor(new Color(117, 118, 112));
-        g.fill(new Arc2D.Double(cx - headR, top - 7 * s, 2 * headR, 36 * s, 0, 180, Arc2D.PIE));
-        g.fill(new Ellipse2D.Double(cx - 27 * s, top + 11 * s, 12 * s, 19 * s));
-        g.setColor(new Color(235, 235, 226, 180));
-        g.setStroke(new BasicStroke((float) (3 * s), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.draw(new Line2D.Double(cx - 23 * s, top + 10 * s, cx - 7 * s, top - 1 * s));
-        g.draw(new Line2D.Double(cx - 11 * s, top + 8 * s, cx + 8 * s, top - 2 * s));
-        g.setColor(new Color(67, 47, 39));
-        g.setStroke(new BasicStroke((float) (3 * s), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.draw(new Line2D.Double(cx - 16 * s, top + 25 * s, cx - 5 * s, top + 22 * s));
-        g.draw(new Line2D.Double(cx + 5 * s, top + 22 * s, cx + 16 * s, top + 25 * s));
-        g.setColor(Color.WHITE);
-        g.fill(new Ellipse2D.Double(cx - 14 * s, top + 28 * s, 11 * s, 8 * s));
-        g.fill(new Ellipse2D.Double(cx + 3 * s, top + 28 * s, 11 * s, 8 * s));
-        g.setColor(new Color(50, 35, 30));
-        g.fill(new Ellipse2D.Double(cx - 10 * s, top + 29 * s, 4 * s, 6 * s));
-        g.fill(new Ellipse2D.Double(cx + 6 * s, top + 29 * s, 4 * s, 6 * s));
-        g.setColor(new Color(245, 157, 126, 80));
-        g.fill(new Ellipse2D.Double(cx - 22 * s, top + 39 * s, 10 * s, 6 * s));
-        g.fill(new Ellipse2D.Double(cx + 12 * s, top + 39 * s, 10 * s, 6 * s));
-        Path2D nose = new Path2D.Double();
-        nose.moveTo(cx, top + 33 * s);
-        nose.curveTo(cx - 4 * s, top + 43 * s, cx - 3 * s, top + 46 * s, cx + 3 * s, top + 45 * s);
-        g.setColor(new Color(196, 126, 88));
-        g.draw(nose);
-        g.setColor(new Color(150, 48, 45));
-        g.setStroke(new BasicStroke((float) (2 * s)));
-        g.draw(new Arc2D.Double(cx - 10 * s, top + 43 * s, 20 * s, 10 * s, 200, 140, Arc2D.OPEN));
-        g.setColor(new Color(22, 22, 22));
-        g.fill(new RoundRectangle2D.Double(cx - 53 * s, top + 48 * s, 106 * s, 253 * s, 18, 18));
-        g.setColor(Color.WHITE);
-        Path2D shirt = new Path2D.Double();
-        shirt.moveTo(cx - 31 * s, top + 54 * s);
-        shirt.lineTo(cx - 20 * s, top + 43 * s);
-        shirt.lineTo(cx + 20 * s, top + 43 * s);
-        shirt.lineTo(cx + 32 * s, top + 54 * s);
-        shirt.lineTo(cx + 37 * s, top + 250 * s);
-        shirt.lineTo(cx - 38 * s, top + 250 * s);
-        shirt.closePath();
-        g.fill(shirt);
-        g.setColor(Color.BLACK);
-        g.fill(new Polygon(new int[] { (int) (cx - 22 * s), (int) (cx - 4 * s), (int) (cx - 20 * s) },
-                new int[] { (int) (top + 44 * s), (int) (top + 69 * s), (int) (top + 50 * s) }, 3));
-        g.fill(new Polygon(new int[] { (int) (cx + 22 * s), (int) (cx + 4 * s), (int) (cx + 20 * s) },
-                new int[] { (int) (top + 44 * s), (int) (top + 69 * s), (int) (top + 50 * s) }, 3));
-        g.setColor(new Color(22, 22, 22));
-        g.setStroke(new BasicStroke((float) (8 * s), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.draw(new Line2D.Double(cx - 30 * s, top + 59 * s, cx, top + 94 * s));
-        g.draw(new Line2D.Double(cx + 30 * s, top + 59 * s, cx, top + 94 * s));
-        g.setColor(skin);
-        g.setStroke(new BasicStroke((float) (14 * s), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.draw(new Line2D.Double(cx - 39 * s, top + 72 * s, cx - 8 * s, top + 154 * s));
-        g.draw(new Line2D.Double(cx + 39 * s, top + 72 * s, cx + 8 * s, top + 154 * s));
-        g.setColor(skin);
-        g.fill(new Ellipse2D.Double(cx - 15 * s, top + 143 * s, 30 * s, 28 * s));
-        g.setColor(new Color(183, 113, 78));
-        g.setStroke(new BasicStroke((float) (2 * s), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        for (int i = -1; i <= 1; i++) {
-            g.draw(new Line2D.Double(cx + i * 5 * s, top + 147 * s, cx + i * 5 * s, top + 160 * s));
-        }
-        g.setColor(Color.BLACK);
-        g.setStroke(new BasicStroke((float) (5 * s)));
-        g.draw(new Ellipse2D.Double(cx + 17 * s, top + 115 * s, 25 * s, 27 * s));
-        g.setColor(new Color(62, 62, 62));
-        g.fill(new Ellipse2D.Double(cx + 20 * s, top + 118 * s, 19 * s, 21 * s));
-        g.setColor(new Color(206, 140, 78));
-        g.fill(new Ellipse2D.Double(cx + 25 * s, top + 123 * s, 9 * s, 11 * s));
-        g.setColor(new Color(55, 55, 55));
-        g.setFont(new Font("SansSerif", Font.BOLD, (int) (22 * s)));
-        g.drawString("S", (float) (cx + 18 * s), (float) (top + 92 * s));
-        g.setColor(new Color(232, 105, 41));
-        g.fill(new Rectangle2D.Double(cx + 37 * s, top + 210 * s, 14 * s, 43 * s));
-    }
-
-    void drawPosterGifts(Graphics2D g, int x, int y) {
-        g.setColor(new Color(107, 70, 38));
-        g.fill(new Rectangle2D.Double(365, y - 45, 47, 45));
-        g.setColor(new Color(238, 188, 52));
-        g.fill(new Polygon(new int[] { 355, 388, 422 }, new int[] { y - 45, y - 73, y - 45 }, 3));
-        g.setColor(new Color(255, 223, 107));
-        g.fill(new Polygon(new int[] { 359, 388, 417 }, new int[] { y - 52, y - 81, y - 52 }, 3));
-        g.setColor(new Color(66, 47, 34));
-        g.fill(new Rectangle2D.Double(382, y - 27, 12, 27));
-        g.setColor(new Color(220, 222, 211));
-        g.fill(new Rectangle2D.Double(370, y - 31, 8, 31));
-        g.fill(new Rectangle2D.Double(398, y - 31, 8, 31));
-
-        for (int i = 0; i < 7; i++) {
-            int bx = x - 62 + i * 20;
-            int by = y - (i % 3) * 12;
-            g.setColor(new Color(220 - i * 15, 70 + i * 18, 45 + i * 20));
-            g.fill(new Rectangle2D.Double(bx, by, 25, 25));
-            g.setColor(new Color(255, 210, 65));
-            g.fill(new Rectangle2D.Double(bx + 10, by, 4, 25));
-            g.setColor(new Color(245, 235, 210, 180));
-            g.draw(new Rectangle2D.Double(bx + 4, by + 6, 17, 8));
-        }
-        g.setColor(new Color(112, 73, 35));
-        g.fill(new Ellipse2D.Double(x - 75, y + 4, 160, 18));
-        g.setColor(new Color(222, 166, 54));
-        g.setStroke(new BasicStroke(3));
-        g.draw(new Arc2D.Double(x - 72, y - 8, 154, 44, 0, -180, Arc2D.OPEN));
-        for (int i = 0; i < 6; i++) {
-            int bx = x - 48 + i * 18;
-            g.setColor(new Color(245, 245, 225));
-            g.fill(new RoundRectangle2D.Double(bx, y + 18, 12, 24 - (i % 2) * 5, 3, 3));
-            g.setColor(new Color(65, 140, 92));
-            g.fill(new Rectangle2D.Double(bx + 2, y + 25, 8, 5));
-        }
-    }
-
-    void drawPosterNaga(Graphics2D g, int x, int y, boolean mirror) {
-        g.setColor(new Color(14, 78, 65, 235));
-        g.setStroke(new BasicStroke(17, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        double d = mirror ? -1 : 1;
-        CubicCurve2D body = new CubicCurve2D.Double(x, y + 80, x + d * 35, y + 20, x + d * 32, y - 25, x, y - 70);
-        g.draw(body);
-        g.setColor(new Color(47, 146, 107));
-        g.setStroke(new BasicStroke(4));
-        g.draw(new CubicCurve2D.Double(x + d * 7, y + 75, x + d * 43, y + 20, x + d * 41, y - 25, x + d * 7, y - 72));
-        for (int i = 0; i < 5; i++) {
-            int sy = y + 46 - i * 25;
-            g.setColor(new Color(224, 182, 46));
-            g.fill(new Arc2D.Double(x - 20 + d * 2, sy, 40, 22, mirror ? 20 : 160, 160, Arc2D.CHORD));
-        }
-        Path2D head = new Path2D.Double();
-        head.moveTo(x - 18, y - 77);
-        head.curveTo(x - 22, y - 94, x - 8, y - 105, x, y - 91);
-        head.curveTo(x + 8, y - 105, x + 22, y - 94, x + 18, y - 77);
-        head.closePath();
-        g.setColor(new Color(225, 170, 45));
-        g.fill(head);
-        g.setColor(new Color(242, 221, 111));
-        g.fill(new Polygon(new int[] { x - 12, x - 3, x - 16 }, new int[] { y - 95, y - 114, y - 102 }, 3));
-        g.fill(new Polygon(new int[] { x + 12, x + 3, x + 16 }, new int[] { y - 95, y - 114, y - 102 }, 3));
-        g.setColor(Color.WHITE);
-        g.fill(new Ellipse2D.Double(x - 9, y - 83, 6, 6));
-        g.fill(new Ellipse2D.Double(x + 3, y - 83, 6, 6));
-        g.setColor(new Color(215, 50, 45));
-        g.fill(new Arc2D.Double(x - 10, y - 73, 20, 18, 180, 180, Arc2D.PIE));
-        g.setColor(Color.WHITE);
-        g.fill(new Polygon(new int[] { x - 6, x - 2, x + 1 }, new int[] { y - 63, y - 54, y - 63 }, 3));
-        g.fill(new Polygon(new int[] { x + 1, x + 5, x + 8 }, new int[] { y - 63, y - 54, y - 63 }, 3));
-    }
-
     // ================= Reusable drawing pieces =================
 
     void restoreFloorBelowPlayer(Graphics2D g2, int playerBottomY) {
@@ -1451,18 +1238,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g2.setStroke(new BasicStroke(2));
         g2.draw(underline);
         g2.setFont(old);
-    }
-
-    void drawMemoriesTitle(Graphics2D g2, double alpha) {
-        Graphics2D gg = (Graphics2D) g2.create();
-        gg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, (float) alpha));
-        gg.setColor(Color.WHITE);
-        gg.setFont(new Font("SansSerif", Font.BOLD, 30));
-        FontMetrics fm = gg.getFontMetrics();
-        String s = "MY MEMORY";
-        int tw = fm.stringWidth(s);
-        gg.drawString(s, (W - tw) / 2f, 90);
-        gg.dispose();
     }
 
     void drawCaption(Graphics2D g2, String text, int y) {
