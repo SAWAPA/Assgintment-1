@@ -27,7 +27,8 @@ public class Assignment1_67050437_67050473 extends JPanel {
     static final int DORAEMON_SCENE_MS = 5000;
     static final int ULTRAMAN_SCENE_MS = 5000;
     static final int STATIC_TWO_MS = 1500; // จอซ่าไม่มีข้อความ
-    static final int WAKEUP_SCENE_MS = 4000; // ฉาก Your memories end
+    static final int WAKEUP_SCENE_1_MS = 3000; // ฉาก Your memories end
+    static final int WAKEUP_SCENE_2_MS = 3000; // ฉาก Time to wake up
     static final int CG_SCENE_MS = 4000; // ฉาก Computer Graphics
 
     long startTime = -1;
@@ -40,7 +41,7 @@ public class Assignment1_67050437_67050473 extends JPanel {
     final int logoW = 120, logoH = 60;
     int rangeX, rangeY;
     int stepX = 3, stepY = 3;
-    int posX, posY;
+    int posX, posY; // Default is 0, starts at top-left
     int dirX = 1, dirY = 1;
     double logoX = 90, logoY = 140;
     Color logoColor = new Color(230, 200, 40);
@@ -98,20 +99,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
     void initBounceGeometry() {
         rangeX = screenW - logoW;
         rangeY = screenH - logoH;
-    }
-
-    void resetAnimation() {
-        startTime = System.currentTimeMillis();
-        posX = staticRng.nextInt(rangeX + 1);
-        posY = staticRng.nextInt(rangeY + 1);
-        dirX = staticRng.nextBoolean() ? 1 : -1;
-        dirY = staticRng.nextBoolean() ? 1 : -1;
-        logoX = screenX + posX;
-        logoY = screenY + posY;
-        logoColor = palette.get(0);
-        cornerLocked = false;
-        cornerLockedAtMs = -1;
-        cornerHitFlashFrames = 0;
     }
 
     // ================= Midpoint Circle Algorithm =================
@@ -355,8 +342,9 @@ public class Assignment1_67050437_67050473 extends JPanel {
         long t3 = t2 + STATIC_ONE_MS;
         long t4 = t3 + ULTRAMAN_SCENE_MS;
         long t5 = t4 + STATIC_TWO_MS;
-        long t6 = t5 + WAKEUP_SCENE_MS;
-        long t7 = t6 + CG_SCENE_MS;
+        long t6 = t5 + WAKEUP_SCENE_1_MS;
+        long t7 = t6 + WAKEUP_SCENE_2_MS;
+        long t8 = t7 + CG_SCENE_MS;
 
         if (t < t0) {
             drawFourArmsTransformation(g2, t);
@@ -371,11 +359,17 @@ public class Assignment1_67050437_67050473 extends JPanel {
         } else if (t < t5) {
             drawStoryStatic(g2, t - t4, ""); // จอซ่าเฉยๆ ไม่มีข้อความ
         } else if (t < t6) {
-            drawWakeUpScene(g2, t - t5);
+            drawWakeUpScene1(g2, t - t5);
         } else if (t < t7) {
-            drawCGScene(g2, t - t6);
+            drawWakeUpScene2(g2, t - t6);
+        } else if (t < t8) {
+            drawCGScene(g2, t - t7);
         } else {
-            resetAnimation();
+            // เล่นรอบเดียวแล้วหยุด โดยการวาดเฟรมสุดท้ายค้างไว้แล้วหยุด Timer
+            drawCGScene(g2, CG_SCENE_MS);
+            if (timer != null && timer.isRunning()) {
+                timer.stop();
+            }
         }
     }
 
@@ -409,26 +403,35 @@ public class Assignment1_67050437_67050473 extends JPanel {
     }
 
     // ================= Wake Up & CG End Scenes =================
-    void drawWakeUpScene(Graphics2D g2, long elapsed) {
+    void drawWakeUpScene1(Graphics2D g2, long elapsed) {
         Graphics2D g = (Graphics2D) g2.create();
         g.setClip(new RoundRectangle2D.Double(screenX, screenY, screenW, screenH, 12, 12));
         g.setColor(Color.BLACK);
         g.fillRect(screenX, screenY, screenW, screenH);
 
-        double fade = clamp01(elapsed / 2000.0);
+        double fade = clamp01(elapsed / 1500.0);
         g.setColor(new Color(255, 255, 255, (int) (255 * fade)));
         g.setFont(new Font("Serif", Font.ITALIC, 24));
 
-        String line1 = "Your memories end";
-        String line2 = "Time to wake up";
-
+        String line = "Your memories have come to an end";
         FontMetrics fm = g.getFontMetrics();
-        int y1 = screenY + screenH / 2 - 15;
-        int y2 = screenY + screenH / 2 + 25;
+        g.drawString(line, screenX + (screenW - fm.stringWidth(line)) / 2, screenY + screenH / 2 + 10);
+        g.dispose();
+    }
 
-        g.drawString(line1, screenX + (screenW - fm.stringWidth(line1)) / 2, y1);
-        g.drawString(line2, screenX + (screenW - fm.stringWidth(line2)) / 2, y2);
+    void drawWakeUpScene2(Graphics2D g2, long elapsed) {
+        Graphics2D g = (Graphics2D) g2.create();
+        g.setClip(new RoundRectangle2D.Double(screenX, screenY, screenW, screenH, 12, 12));
+        g.setColor(Color.BLACK);
+        g.fillRect(screenX, screenY, screenW, screenH);
 
+        double fade = clamp01(elapsed / 1500.0);
+        g.setColor(new Color(255, 255, 255, (int) (255 * fade)));
+        g.setFont(new Font("Serif", Font.ITALIC, 24));
+
+        String line = "It is time to wake up.";
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(line, screenX + (screenW - fm.stringWidth(line)) / 2, screenY + screenH / 2 + 10);
         g.dispose();
     }
 
@@ -440,11 +443,19 @@ public class Assignment1_67050437_67050473 extends JPanel {
 
         double fade = clamp01(elapsed / 1500.0);
         g.setColor(new Color(255, 255, 255, (int) (255 * fade)));
-        g.setFont(new Font("SansSerif", Font.BOLD, 32));
 
-        String text = "Computer Graphics";
-        FontMetrics fm = g.getFontMetrics();
-        g.drawString(text, screenX + (screenW - fm.stringWidth(text)) / 2, screenY + screenH / 2 + 10);
+        String text1 = "This is the real world";
+        String text2 = "Computer Graphics";
+
+        // วาดบรรทัดแรก
+        g.setFont(new Font("SansSerif", Font.PLAIN, 20));
+        FontMetrics fm1 = g.getFontMetrics();
+        g.drawString(text1, screenX + (screenW - fm1.stringWidth(text1)) / 2, screenY + screenH / 2 - 10);
+
+        // วาดบรรทัดที่สอง (เด่นกว่า)
+        g.setFont(new Font("SansSerif", Font.BOLD, 32));
+        FontMetrics fm2 = g.getFontMetrics();
+        g.drawString(text2, screenX + (screenW - fm2.stringWidth(text2)) / 2, screenY + screenH / 2 + 30);
 
         g.dispose();
     }
