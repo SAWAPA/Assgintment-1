@@ -150,7 +150,7 @@ public class Assignment1_67050437_67050473 extends JPanel {
             int idx = (palette.indexOf(logoColor) + 1) % palette.size();
             logoColor = palette.get(idx);
         }
-        if (hitX && hitY || elapsed - T_TV_BLACK_END >= 15000) {
+        if (hitX && hitY) {
             cornerHitFlashFrames = 20;
             cornerLocked = true;
             cornerLockedAtMs = elapsed;
