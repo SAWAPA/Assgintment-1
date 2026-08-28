@@ -7,57 +7,50 @@ import java.util.Random;
 
 public class Assignment1_67050437_67050473 extends JPanel {
 
-    // ---------- Canvas ----------
     static final int W = 600, H = 600;
 
-    // ---------- Timing (milliseconds) ----------
     static final int FPS = 60;
     static final int FRAME_DELAY = 1000 / FPS;
 
     static final int T_INSERT_START = 0;
-    static final int T_INSERT_END = 2500; // hand pushes disc into slot
-    static final int T_LOADING_END = 3500; // player "reads" disc, light blinks
-    static final int T_TV_CUT_END = 3900; // quick white-flash transition to TV
-    static final int T_TV_STATIC_END = 5400; // old CRT "just switched on" static/snow, ~1.5s
-    static final int T_TV_BLACK_END = 6000; // static settles to black before the logo appears
+    static final int T_INSERT_END = 2500;
+    static final int T_LOADING_END = 3500;
+    static final int T_TV_CUT_END = 3900;
+    static final int T_TV_STATIC_END = 5400;
+    static final int T_TV_BLACK_END = 6000;
 
-    // Story after the DVD logo reaches a corner.
     static final int BEN_SCENE_MS = 5000;
     static final int STATIC_ONE_MS = 1000;
     static final int DORAEMON_SCENE_MS = 5000;
     static final int ULTRAMAN_SCENE_MS = 5000;
-    static final int STATIC_TWO_MS = 1500; // จอซ่าไม่มีข้อความ
-    static final int WAKEUP_SCENE_1_MS = 3000; // ฉาก Your memories end
-    static final int WAKEUP_SCENE_2_MS = 3000; // ฉาก Time to wake up
-    static final int CG_SCENE_MS = 4000; // ฉาก Computer Graphics
+    static final int STATIC_TWO_MS = 1500;
+    static final int WAKEUP_SCENE_1_MS = 3000;
+    static final int WAKEUP_SCENE_2_MS = 3000;
+    static final int CG_SCENE_MS = 4000;
 
     long startTime = -1;
     Timer timer;
 
-    // ---------- Midpoint circle algorithm storage ----------
     List<Point> discOutlinePoints = new ArrayList<>();
 
-    // ---------- Bouncing logo state ----------
     final int logoW = 120, logoH = 60;
     int rangeX, rangeY;
     int stepX = 3, stepY = 3;
-    int posX, posY; // Default is 0, starts at top-left
+    int posX, posY;
     int dirX = 1, dirY = 1;
     double logoX = 90, logoY = 140;
     Color logoColor = new Color(230, 200, 40);
     List<Color> palette = List.of(
-            new Color(230, 200, 40), // yellow
-            new Color(230, 70, 70), // red
-            new Color(70, 160, 230), // blue
-            new Color(90, 200, 110), // green
-            new Color(200, 90, 220) // purple
-    );
+            new Color(230, 200, 40),
+            new Color(230, 70, 70),
+            new Color(70, 160, 230),
+            new Color(90, 200, 110),
+            new Color(200, 90, 220));
     int cornerHitFlashFrames = 0;
 
     boolean cornerLocked = false;
     long cornerLockedAtMs = -1;
 
-    // TV inner screen bounds
     final int screenX = 90, screenY = 140, screenW = 420, screenH = 300;
 
     static final int STATIC_CELL = 4;
@@ -101,7 +94,20 @@ public class Assignment1_67050437_67050473 extends JPanel {
         rangeY = screenH - logoH;
     }
 
-    // ================= Midpoint Circle Algorithm =================
+    void resetAnimation() {
+        startTime = System.currentTimeMillis();
+        posX = staticRng.nextInt(rangeX + 1);
+        posY = staticRng.nextInt(rangeY + 1);
+        dirX = staticRng.nextBoolean() ? 1 : -1;
+        dirY = staticRng.nextBoolean() ? 1 : -1;
+        logoX = screenX + posX;
+        logoY = screenY + posY;
+        logoColor = palette.get(0);
+        cornerLocked = false;
+        cornerLockedAtMs = -1;
+        cornerHitFlashFrames = 0;
+    }
+
     static List<Point> midpointCircle(int cx, int cy, int radius) {
         List<Point> pts = new ArrayList<>();
         int x = 0;
@@ -133,7 +139,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         pts.add(new Point(cx - y, cy - x));
     }
 
-    // ================= Bounce physics =================
     void stepBounce(long elapsed) {
         boolean hitX = advanceAxisAndReportBounce(true);
         boolean hitY = advanceAxisAndReportBounce(false);
@@ -180,7 +185,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         return bounced;
     }
 
-    // ================= Paint =================
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -313,8 +317,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         }
     }
 
-    // ---------------- Scene 6: TV + bouncing logo and memory story
-    // ----------------
     void drawBounceScene(Graphics2D g2, long elapsed) {
         g2.setColor(new Color(10, 10, 14));
         g2.fillRect(0, 0, W, H);
@@ -357,7 +359,7 @@ public class Assignment1_67050437_67050473 extends JPanel {
         } else if (t < t4) {
             drawUltramanBeamScene(g2, t - t3);
         } else if (t < t5) {
-            drawStoryStatic(g2, t - t4, ""); // จอซ่าเฉยๆ ไม่มีข้อความ
+            drawStoryStatic(g2, t - t4, "");
         } else if (t < t6) {
             drawWakeUpScene1(g2, t - t5);
         } else if (t < t7) {
@@ -365,7 +367,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         } else if (t < t8) {
             drawCGScene(g2, t - t7);
         } else {
-            // เล่นรอบเดียวแล้วหยุด โดยการวาดเฟรมสุดท้ายค้างไว้แล้วหยุด Timer
             drawCGScene(g2, CG_SCENE_MS);
             if (timer != null && timer.isRunning()) {
                 timer.stop();
@@ -402,7 +403,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.dispose();
     }
 
-    // ================= Wake Up & CG End Scenes =================
     void drawWakeUpScene1(Graphics2D g2, long elapsed) {
         Graphics2D g = (Graphics2D) g2.create();
         g.setClip(new RoundRectangle2D.Double(screenX, screenY, screenW, screenH, 12, 12));
@@ -447,12 +447,10 @@ public class Assignment1_67050437_67050473 extends JPanel {
         String text1 = "This is the real world";
         String text2 = "Computer Graphics";
 
-        // วาดบรรทัดแรก
         g.setFont(new Font("SansSerif", Font.PLAIN, 20));
         FontMetrics fm1 = g.getFontMetrics();
         g.drawString(text1, screenX + (screenW - fm1.stringWidth(text1)) / 2, screenY + screenH / 2 - 10);
 
-        // วาดบรรทัดที่สอง (เด่นกว่า)
         g.setFont(new Font("SansSerif", Font.BOLD, 32));
         FontMetrics fm2 = g.getFontMetrics();
         g.drawString(text2, screenX + (screenW - fm2.stringWidth(text2)) / 2, screenY + screenH / 2 + 30);
@@ -460,7 +458,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.dispose();
     }
 
-    // ================= Ben 10 Scene =================
     void drawFourArmsTransformation(Graphics2D g2, long elapsed) {
         beginStoryScreen(g2, new Color(10, 25, 15), new Color(5, 10, 5));
         Graphics2D g = (Graphics2D) g2.create();
@@ -670,7 +667,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.draw(new Line2D.Double(cx - 85 * s, cy + 5 * s, cx - 90 * s, cy - 5 * s));
     }
 
-    // ================= Doraemon Scene =================
     void drawDoraemonGadgetScene(Graphics2D g2, long elapsed) {
         double p = clamp01(elapsed / (double) DORAEMON_SCENE_MS);
         Graphics2D g = (Graphics2D) g2.create();
@@ -972,7 +968,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.draw(new Arc2D.Double(cx - 35 * scale, cy + 67 * scale, 70 * scale, 46 * scale, 0, -180, Arc2D.OPEN));
     }
 
-    // ================= Ultraman Scene =================
     void drawUltramanBeamScene(Graphics2D g2, long elapsed) {
         beginStoryScreen(g2, new Color(8, 14, 45), new Color(75, 10, 25));
         Graphics2D g = (Graphics2D) g2.create();
@@ -1115,8 +1110,6 @@ public class Assignment1_67050437_67050473 extends JPanel {
         g.setColor(new Color(40, 180, 235));
         g.fill(new Ellipse2D.Double(cx - 9 * scale, cy + 30 * scale, 18 * scale, 18 * scale));
     }
-
-    // ================= Reusable drawing pieces =================
 
     void restoreFloorBelowPlayer(Graphics2D g2, int playerBottomY) {
         g2.setColor(new Color(60, 48, 40));
